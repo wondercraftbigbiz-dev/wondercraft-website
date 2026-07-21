@@ -1,4 +1,3 @@
-import Image from 'next/image'
 import { Leaf } from 'lucide-react'
 import { startingPrice } from '@/lib/data/pricing'
 import { CtaButton } from './cta-button'
@@ -47,14 +46,18 @@ export function Hero() {
 
         <Reveal className="order-1 lg:order-2">
           <div className="overflow-hidden rounded-[4px] border-2 border-charcoal">
-            <Image
-              src="/images/house-hero.png"
-              alt="Дете надничащо от картонена къщичка за игра Wondercraft"
-              width={720}
-              height={720}
-              priority
+            <video
+              autoPlay
+              muted
+              loop
+              playsInline
+              preload="metadata"
+              poster="/images/house-hero.png"
+              aria-label="Дете рисува върху картонена къщичка за игра Wondercraft"
               className="aspect-square h-auto w-full object-cover"
-            />
+            >
+              <source src="/videos/kid-draws-on-house.mp4" type="video/mp4" />
+            </video>
           </div>
         </Reveal>
       </div>
