@@ -1,0 +1,93 @@
+@import 'tailwindcss';
+
+@theme inline {
+  /* Brand palette */
+  --color-cream: #faf8f5;
+  --color-kraft: #e4d9c8;
+  --color-charcoal: #222222;
+  --color-charcoal-soft: #5a5450;
+  --color-sage: #e8f0ec;
+  --color-coral: #ff6b4a;
+
+  /* Semantic tokens */
+  --color-background: #faf8f5;
+  --color-foreground: #222222;
+
+  /* Fonts */
+  --font-sans: var(--font-inter), 'Inter', system-ui, sans-serif;
+  --font-display: var(--font-onest), 'Onest', system-ui, sans-serif;
+
+  /* Radius */
+  --radius-card: 4px;
+  --radius-button: 8px;
+}
+
+:root {
+  color-scheme: light;
+}
+
+@layer base {
+  html {
+    background-color: var(--color-cream);
+    scroll-behavior: smooth;
+  }
+
+  body {
+    background-color: var(--color-cream);
+    color: var(--color-charcoal);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    line-height: 1.65;
+  }
+
+  /* Visible focus ring: coral, 2px, offset 2px */
+  :focus-visible {
+    outline: 2px solid var(--color-coral);
+    outline-offset: 2px;
+  }
+}
+
+@layer utilities {
+  /* Corrugation: repeating 4px vertical lines in kraft at 8% opacity */
+  .corrugation {
+    background-image: repeating-linear-gradient(
+      to right,
+      color-mix(in srgb, var(--color-kraft) 55%, transparent) 0px,
+      color-mix(in srgb, var(--color-kraft) 55%, transparent) 1px,
+      transparent 1px,
+      transparent 4px
+    );
+  }
+}
+
+/* Reveal-on-scroll animation */
+.reveal {
+  opacity: 0;
+  transform: translateY(16px);
+  transition: opacity 240ms ease-out, transform 240ms ease-out;
+  will-change: opacity, transform;
+}
+
+.reveal.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  .reveal {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
