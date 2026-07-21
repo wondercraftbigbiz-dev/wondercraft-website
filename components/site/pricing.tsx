@@ -61,10 +61,10 @@ export function Pricing() {
 
                   <div className="mt-6 flex items-baseline gap-2">
                     <span className="font-display text-4xl font-bold text-charcoal">
-                      {plan.lev}
+                      {plan.euro}
                     </span>
                     <span className="text-base text-charcoal-soft">
-                      / {plan.euro}
+                      ({plan.lev})
                     </span>
                   </div>
 

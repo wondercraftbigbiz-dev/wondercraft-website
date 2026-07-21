@@ -19,7 +19,7 @@ export function FinalCta() {
           </h2>
           <p className="mx-auto mt-4 max-w-xl text-pretty text-base leading-relaxed text-charcoal-soft md:text-[17px]">
             Изцяло от рециклиран картон, готова за 15 минути. От{' '}
-            {startingPrice.lev} / {startingPrice.euro}.
+            {startingPrice.euro} ({startingPrice.lev}).
           </p>
           <div className="mt-8 flex justify-center">
             <CtaButton />

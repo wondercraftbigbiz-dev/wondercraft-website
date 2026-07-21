@@ -173,7 +173,7 @@ export function ContactModal({
                 >
                   {plans.map((p) => (
                     <option key={p.id} value={p.id}>
-                      {p.name} — {p.lev}
+                      {p.name} — {p.euro} ({p.lev})
                     </option>
                   ))}
                 </select>

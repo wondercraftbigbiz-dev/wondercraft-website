@@ -33,10 +33,10 @@ export function Hero() {
 
           <div className="mt-6 flex items-baseline gap-2">
             <span className="font-display text-3xl font-bold text-charcoal">
-              от {startingPrice.lev}
+              от {startingPrice.euro}
             </span>
             <span className="text-base text-charcoal-soft">
-              / {startingPrice.euro}
+              ({startingPrice.lev})
             </span>
           </div>
 
