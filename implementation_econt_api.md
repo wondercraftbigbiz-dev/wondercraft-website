@@ -64,15 +64,59 @@ Browser renders the picker
 
 ---
 
-## 2. Assumptions (flip any of these before implementation starts)
+## 2. Decisions (confirmed)
 
-| # | Assumption | Why | Cost to change |
-| - | ---------- | --- | -------------- |
-| A1 | **Custom UI** on the Nomenclatures API, not Econt's iframe widget | The site has a strong cardboard/kraft design system; an embedded Econt iframe would look pasted in and can't be restyled | Low if decided now, high after the UI is built |
-| A2 | **Office + Econtomat** delivery, address delivery deferred | Office pickup is the dominant BG e-commerce flow and needs one-third the form fields | Medium — adds streets/quarters endpoints and 4 fields |
-| A3 | **Shipping price shown live** via `createLabel` in calculate mode | Makes the prototype feel real; it's one extra endpoint | Low |
-| A4 | **Submit stays fake** — no shipment is created in Econt's demo system | It's a front-end prototype; writing waybills to a shared sandbox is noise | Low |
-| A5 | Bulgaria only (`countryCode: "BGR"`), UI in Bulgarian | Matches the existing site | Low |
+| # | Decision | Notes |
+| - | -------- | ----- |
+| D1 | **Custom UI** on the Nomenclatures API. No Econt iframe widget. | Confirmed. The picker is built in the site's own cardboard design system. |
+| D2 | **Office delivery to every Econt office in Bulgaria.** No address delivery. | `getStreets`/`getQuarters` are out of scope. See §2.1 on Econtomat lockers. |
+| D3 | **Shipping price shown live** via `createLabel` in `calculate` mode. | Uses the placeholder parcel spec in §2.2. |
+| D4 | **Online payment only. No cash on delivery.** | No наложен платеж fee in the quote, no payment-method control, no COD fields on the label call. See §2.3. |
+| D5 | **Submit stays fake** — no shipment is created in Econt's demo system. | Selection is captured and logged only. |
+| D6 | **Sender: Blagoevgrad.** | Origin for all price calculations. |
+| D7 | Bulgaria only (`countryCode: "BGR"`), UI in Bulgarian. | Matches the existing site. |
+
+### 2.1 Econtomat lockers
+
+D2 says "every Econt office in Bulgaria". `getOffices` returns both staffed offices and
+Econtomat lockers in one list, distinguished by the `isAPS` flag. Lockers have a parcel
+size limit that a flat-packed playhouse will likely exceed.
+
+**Plan: filter `isAPS === true` out of the list.** A locker the product cannot physically
+fit into isn't an office worth offering, and a demo that lets someone choose an
+impossible delivery method teaches the wrong thing. This is one line in the offices
+route and trivially reversible once real box dimensions exist (§2.2) — if the packed
+house turns out to fit a locker, drop the filter and add the delivery-type toggle back.
+
+### 2.2 Parcel spec — placeholder values
+
+Real weight and dimensions aren't known yet, so these are stand-ins chosen to be
+plausible for a flat-packed corrugated playhouse:
+
+```
+weight:  5 kg
+size:    80 × 60 × 15 cm  (flat-packed)
+```
+
+These live in **one exported constant** in `lib/econt/config.ts`, commented as
+placeholders, so correcting them later is a one-line edit rather than a hunt. They are
+the only fabricated numbers in the integration.
+
+Consequence worth stating plainly: **the shipping prices this prototype displays are not
+real.** They are correctly-computed Econt quotes for a parcel that may not match the
+actual product. Fine for testing the flow and the UI; not fine for a screenshot that
+reaches a customer.
+
+### 2.3 What "online payment only" does and doesn't mean
+
+No COD removes the наложен платеж fee from the quote and drops the payment-method
+control from the modal — the shipping quote is simply the courier tariff.
+
+It does **not** mean a payment integration. This is still a front-end prototype with a
+fake success screen (D5); there is no Stripe, no card form, no payment provider. The
+modal should say that delivery is prepaid without implying a checkout exists. When a
+real payment provider is added later, it sits alongside this work and doesn't change
+the Econt layer.
 
 ---
 
@@ -96,15 +140,15 @@ the response by roughly 70%.
 
 **`app/api/econt/offices/route.ts`**
 Wraps `getOffices.json`. Accepts `?cityId=` and filters server-side. Slim to
-`{ id, code, name, address, isAPS, workingHours, lat, lon }`. The `isAPS` flag is what
-separates a real office from an Econtomat locker — surface it, don't hide it, since a
-locker has a parcel size limit a wardrobe-sized cardboard house will fail.
+`{ id, code, name, address, workingHours, lat, lon }`. Per §2.1, entries with
+`isAPS === true` (Econtomat lockers) are dropped here — the flag is read and used, but
+never reaches the client.
 
-**`app/api/econt/shipping-price/route.ts`** *(only if A3 holds)*
+**`app/api/econt/shipping-price/route.ts`**
 Wraps `Shipments/LabelService.createLabel.json` with `mode: "calculate"`. This mode
-computes a price and returns it **without creating a shipment** — it's the safe,
-read-only way to quote. Body needs sender (your warehouse), receiver (the chosen
-office), and parcel weight/dimensions.
+computes a price and returns it **without creating a shipment** — the safe, read-only
+way to quote. Body carries sender (Blagoevgrad, D6), receiver (the chosen office), and
+the parcel spec from §2.2. No COD fields (D4).
 
 **Caching.** The city and office nomenclatures change maybe monthly. Fetching several
 megabytes on every modal open is wasteful and slow. Use Next's built-in fetch cache
@@ -131,14 +175,13 @@ from one real response captured during step 0, not guessed from docs. Econt's ac
 JSON differs from its documentation in small ways (nullable fields mostly), and a
 captured response is the honest source.
 
-**`components/site/econt-picker.tsx`** — a client component, three controls:
+**`components/site/econt-picker.tsx`** — a client component, two controls (no
+delivery-type toggle: offices only, per D2):
 
-1. **Delivery type** — a two-way toggle: *До офис на Еконт* / *До Еконтомат*.
-   Styled as the existing bordered pill pair, not a `<select>`.
-2. **City** — a searchable combobox. 1,500 entries is far too many for a native
+1. **City** — a searchable combobox. 1,500 entries is far too many for a native
    `<select>`, and Bulgarian users type Latin ("Sofia") as often as Cyrillic
    ("София"), so filter against both `name` and `nameEn`.
-3. **Office** — appears only once a city is chosen. Each row shows the office name,
+2. **Office** — appears only once a city is chosen. Each row shows the office name,
    full address and working hours. Disabled with a hint until a city is picked, rather
    than hidden — a control that appears from nowhere is more disorienting than one
    that's visibly waiting.
@@ -174,14 +217,15 @@ Validation extends the existing `Errors` type: replace `city` with `office`, mes
 `"Моля, изберете офис на Еконт."`, applying the same "validate on submit, not on blur"
 pattern the modal already uses.
 
-If A3 holds, an order summary line appears under the picker once an office is chosen:
-model price + delivery price + total, using the comma-decimal / symbol-after-number
-convention `lib/data/pricing.ts` already documents. Prices stay in `lib/data/pricing.ts`
-— that file's "never hardcode a price in a component" rule applies to shipping too.
+An order summary line appears under the picker once an office is chosen: model price +
+delivery price + total, using the comma-decimal / symbol-after-number convention
+`lib/data/pricing.ts` already documents. Prices stay in `lib/data/pricing.ts` — that
+file's "never hardcode a price in a component" rule applies to shipping too. Since
+delivery is prepaid (D4), the total is the full amount, with no COD line.
 
 ### 3.4 Submit
 
-Per A4, `handleSubmit` keeps showing the fake success screen. The only change: the
+Per D5, `handleSubmit` keeps showing the fake success screen. The only change: the
 selected office object is included in the assembled payload and `console.log`ed, so you
 can confirm in DevTools that a real Econt office id is being captured. That log is a
 prototype affordance and should carry a comment saying so.
@@ -201,8 +245,7 @@ green in a browser.
 5. **Picker component**, wired to the two routes. Drop it on a scratch page before
    putting it in the modal — debugging a combobox inside a focus trap is worse.
 6. **Modal integration** + validation.
-7. **Shipping price** (A3), last, because it's the only piece that's decorative if it
-   fails.
+7. **Shipping price**, last, because it's the only piece that's decorative if it fails.
 8. **Mobile pass** at 375px, plus keyboard-only run-through.
 
 Steps 1–4 are half a day. Step 5 is the bulk of the work — a searchable combobox with
@@ -218,12 +261,10 @@ proper keyboard support is where the time actually goes, not the API.
   slim server-side, cache aggressively. Never send the raw response to the browser.
 - **Cyrillic vs Latin search.** Match both `name` and `nameEn` or users typing "Sofia"
   get nothing.
-- **Econtomat size limits.** Lockers can't take large parcels. If the product doesn't
-  fit, either drop the Econtomat option or show a size caveat — a prototype that lets
-  someone pick an impossible delivery method teaches the wrong thing in a demo.
 - **Demo data is not production data.** Office ids, names and prices from
-  `demo.econt.com` are broadly realistic but not authoritative. Don't screenshot demo
-  prices into anything customer-facing.
+  `demo.econt.com` are broadly realistic but not authoritative.
+- **Displayed shipping prices are doubly unreal** — a demo-environment tariff applied to
+  a placeholder parcel spec (§2.2). Don't put them in front of a customer.
 - **The shared sandbox can be slow or briefly down.** Every route needs a real error
   path: a Bulgarian-language message and a retry, not a blank dropdown.
 
@@ -240,18 +281,12 @@ front-end-only prototype has no order store. Keeping all Econt access behind
 
 ---
 
-## 7. Open questions
+## 7. Loose ends
 
-Answer these and the plan above collapses to a single unambiguous path. Until then,
-the assumptions in §2 stand.
+No blocking questions remain — §2 is settled and implementation can start. Two items to
+revisit when the information exists:
 
-1. **Address delivery** (до адрес) — needed in the prototype, or is office + Econtomat
-   enough? Adds `getStreets`/`getQuarters` and roughly four form fields.
-2. **Parcel weight and dimensions** — required for a real price quote (A3). What does a
-   packed cardboard house weigh and measure? Without this, shipping price has to be a
-   hardcoded estimate.
-3. **Sender city/office** — the price depends on origin. Which city ships from?
-4. **Cash on delivery** — should the prototype model наложен платеж? It changes the
-   quoted total (COD carries its own fee) and adds a payment-method control.
-5. **The Econt widget** — confirmed not wanted? It's faster to ship and always current,
-   at the cost of an iframe that will not match this site's design.
+1. **Real parcel weight and dimensions**, replacing the placeholders in §2.2. Until then
+   the quoted shipping prices are indicative only.
+2. **Econtomat lockers**, currently filtered out (§2.1). If the flat-packed box turns out
+   to fit locker limits, drop the filter and add a delivery-type toggle to the picker.
