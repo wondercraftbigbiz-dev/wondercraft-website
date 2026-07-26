@@ -1,5 +1,4 @@
 import { Analytics } from '@vercel/analytics/next'
-import { SpeedInsights } from '@vercel/speed-insights/next'
 import type { Metadata, Viewport } from 'next'
 import { Inter, Onest } from 'next/font/google'
 import './globals.css'
@@ -58,12 +57,7 @@ export default function RootLayout({
     <html lang="bg" className={`${inter.variable} ${onest.variable}`}>
       <body className="antialiased">
         {children}
-        {process.env.NODE_ENV === 'production' && (
-          <>
-            <Analytics />
-            <SpeedInsights />
-          </>
-        )}
+        {process.env.NODE_ENV === 'production' && <Analytics />}
       </body>
     </html>
   )
