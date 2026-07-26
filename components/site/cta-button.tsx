@@ -27,11 +27,11 @@ export function CtaButton({
       type="button"
       onClick={() => open(model)}
       className={cn(
-        'inline-flex min-h-11 items-center justify-center gap-2 rounded-[8px] px-6 py-3 font-display text-base font-semibold transition-transform duration-150 ease-out hover:scale-[1.02] active:scale-100',
+        'inline-flex min-h-11 items-center justify-center gap-2 rounded-[8px] px-6 py-3 font-display text-base font-semibold transition-all duration-150 ease-out hover:scale-[1.02] active:scale-100',
         variant === 'solid' &&
-          'border-2 border-coral bg-coral text-cream hover:bg-coral',
+          'border-2 border-charcoal bg-salmon text-charcoal hover:bg-salmon-hover',
         variant === 'outline' &&
-          'border-2 border-charcoal bg-transparent text-charcoal',
+          'border-2 border-charcoal bg-transparent text-charcoal hover:bg-black/5',
         className,
       )}
       {...rest}

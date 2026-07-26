@@ -2,15 +2,17 @@
 
 @theme inline {
   /* Brand palette */
-  --color-cream: #faf8f5;
-  --color-kraft: #e4d9c8;
+  --color-cream: #faf5ee;
+  --color-kraft: #ebdcc9;
   --color-charcoal: #222222;
   --color-charcoal-soft: #5a5450;
-  --color-sage: #e8f0ec;
-  --color-coral: #ff6b4a;
+  --color-sage: #d4f0e7;
+  --color-coral: #fba196;
+  --color-salmon: #fba196;
+  --color-salmon-hover: #f98b7e;
 
   /* Semantic tokens */
-  --color-background: #faf8f5;
+  --color-background: #faf5ee;
   --color-foreground: #222222;
 
   /* Fonts */
@@ -40,9 +42,9 @@
     line-height: 1.65;
   }
 
-  /* Visible focus ring: coral, 2px, offset 2px */
+  /* Visible focus ring: salmon, 2px, offset 2px */
   :focus-visible {
-    outline: 2px solid var(--color-coral);
+    outline: 2px solid var(--color-salmon);
     outline-offset: 2px;
   }
 }

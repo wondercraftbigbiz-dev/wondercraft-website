@@ -36,7 +36,7 @@ export function Benefits() {
         {benefits.map((benefit, i) => (
           <Reveal key={benefit.title}>
             <div className="h-full rounded-[4px] border-2 border-charcoal bg-cream p-6">
-              <span className="inline-flex h-12 w-12 items-center justify-center rounded-[4px] bg-sage">
+              <span className="inline-flex h-12 w-12 items-center justify-center rounded-[4px] border-2 border-charcoal bg-sage">
                 <benefit.icon
                   className="h-6 w-6 text-charcoal"
                   aria-hidden="true"

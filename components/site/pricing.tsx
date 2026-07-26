@@ -43,7 +43,7 @@ export function Pricing() {
                       </p>
                     </div>
                     {plan.featured && (
-                      <span className="shrink-0 rounded-[4px] bg-coral px-3 py-1 font-display text-sm font-semibold text-cream">
+                      <span className="shrink-0 rounded-[4px] border-2 border-charcoal bg-salmon px-3 py-1 font-display text-sm font-semibold text-charcoal">
                         Любим избор
                       </span>
                     )}
@@ -72,7 +72,7 @@ export function Pricing() {
                     {plan.features.map((feature) => (
                       <li key={feature} className="flex items-start gap-3">
                         <Check
-                          className="mt-0.5 h-5 w-5 shrink-0 text-coral"
+                          className="mt-0.5 h-5 w-5 shrink-0 text-salmon"
                           aria-hidden="true"
                         />
                         <span className="text-base leading-relaxed text-charcoal">

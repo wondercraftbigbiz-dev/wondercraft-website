@@ -56,7 +56,7 @@ export function Assembly() {
                 />
               </div>
               <div className="p-6">
-                <span className="inline-flex h-9 w-9 items-center justify-center rounded-[4px] bg-coral font-display text-base font-semibold text-cream">
+                <span className="inline-flex h-9 w-9 items-center justify-center rounded-[4px] border-2 border-charcoal bg-salmon font-display text-base font-semibold text-charcoal">
                   {step.number}
                 </span>
                 <h3 className="mt-4 font-display text-xl font-semibold text-charcoal">

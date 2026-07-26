@@ -23,7 +23,7 @@ export function Testimonials() {
                 {Array.from({ length: 5 }).map((_, i) => (
                   <Star
                     key={i}
-                    className="h-5 w-5 fill-coral text-coral"
+                    className="h-5 w-5 fill-salmon text-salmon"
                     aria-hidden="true"
                   />
                 ))}

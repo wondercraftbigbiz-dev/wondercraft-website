@@ -1,5 +1,6 @@
 'use client'
 
+import Image from 'next/image'
 import { ShoppingBag } from 'lucide-react'
 import { useContactModal } from './modal-context'
 
@@ -11,22 +12,30 @@ export function Header() {
       <div className="mx-auto flex h-16 w-full max-w-[1120px] items-center justify-between px-5">
         <a
           href="#hero"
-          className="font-display text-xl font-bold tracking-tight text-charcoal"
+          className="flex items-center"
+          aria-label="Wondercraft Начало"
         >
-          Wondercraft
+          <Image
+            src="/wondercraft_logo_svg.svg"
+            alt="Wondercraft Logo"
+            width={160}
+            height={44}
+            className="h-10 w-auto object-contain"
+            priority
+          />
         </a>
 
         <nav
           aria-label="Основна навигация"
           className="hidden items-center gap-7 md:flex"
         >
-          <a href="#pricing" className="text-sm text-charcoal hover:text-coral">
+          <a href="#pricing" className="text-sm font-medium text-charcoal hover:text-salmon">
             Цени
           </a>
-          <a href="#assembly" className="text-sm text-charcoal hover:text-coral">
+          <a href="#assembly" className="text-sm font-medium text-charcoal hover:text-salmon">
             Сглобяване
           </a>
-          <a href="#faq" className="text-sm text-charcoal hover:text-coral">
+          <a href="#faq" className="text-sm font-medium text-charcoal hover:text-salmon">
             Въпроси
           </a>
         </nav>
@@ -34,7 +43,7 @@ export function Header() {
         <button
           type="button"
           onClick={() => open('standard')}
-          className="inline-flex min-h-11 items-center justify-center gap-2 rounded-[8px] border-2 border-coral bg-coral px-4 py-2 font-display text-base font-semibold text-cream transition-transform duration-150 ease-out hover:scale-[1.02]"
+          className="inline-flex min-h-11 items-center justify-center gap-2 rounded-[8px] border-2 border-charcoal bg-salmon px-4 py-2 font-display text-base font-semibold text-charcoal transition-all duration-150 ease-out hover:bg-salmon-hover hover:scale-[1.02]"
         >
           <ShoppingBag className="h-5 w-5" aria-hidden="true" />
           {/* Full label on wider screens, short label on very small screens */}

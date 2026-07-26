@@ -119,8 +119,8 @@ export function ContactModal({
 
         {submitted ? (
           <div className="px-6 py-10 text-center">
-            <span className="mx-auto inline-flex h-14 w-14 items-center justify-center rounded-[8px] bg-coral">
-              <Check className="h-7 w-7 text-cream" aria-hidden="true" />
+            <span className="mx-auto inline-flex h-14 w-14 items-center justify-center rounded-[8px] border-2 border-charcoal bg-salmon">
+              <Check className="h-7 w-7 text-charcoal" aria-hidden="true" />
             </span>
             <p className="mt-5 text-pretty text-base leading-relaxed text-charcoal">
               Получихме заявката ви. Ще се свържем с вас възможно най-скоро, за да
@@ -205,7 +205,7 @@ export function ContactModal({
 
             <button
               type="submit"
-              className="mt-6 inline-flex min-h-11 w-full items-center justify-center rounded-[8px] border-2 border-coral bg-coral px-6 py-3 font-display text-base font-semibold text-cream transition-transform duration-150 hover:scale-[1.02]"
+              className="mt-6 inline-flex min-h-11 w-full items-center justify-center rounded-[8px] border-2 border-charcoal bg-salmon px-6 py-3 font-display text-base font-semibold text-charcoal transition-all duration-150 hover:bg-salmon-hover hover:scale-[1.02]"
             >
               Поръчай сега
             </button>
@@ -253,7 +253,7 @@ function Field({
       </span>
       {children}
       {error && (
-        <span className="mt-1 block text-sm text-coral">{error}</span>
+        <span className="mt-1 block text-sm font-medium text-salmon">{error}</span>
       )}
     </label>
   )

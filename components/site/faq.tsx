@@ -44,7 +44,7 @@ export function Faq() {
                     {item.question}
                     <Plus
                       className={`h-5 w-5 shrink-0 transition-transform duration-200 ${
-                        isOpen ? 'rotate-45 text-coral' : 'text-charcoal'
+                        isOpen ? 'rotate-45 text-salmon' : 'text-charcoal'
                       }`}
                       aria-hidden="true"
                     />

@@ -12,8 +12,8 @@ export function Hero() {
     >
       <div className="mx-auto grid w-full max-w-[1120px] items-center gap-10 lg:grid-cols-2 lg:gap-14">
         <Reveal className="order-2 lg:order-1">
-          <span className="inline-flex items-center gap-2 rounded-[4px] bg-sage px-3 py-1.5 text-sm font-medium text-charcoal">
-            <Leaf className="h-4 w-4 text-coral" aria-hidden="true" />
+          <span className="inline-flex items-center gap-2 rounded-[4px] border-2 border-charcoal bg-sage px-3 py-1.5 text-sm font-semibold text-charcoal">
+            <Leaf className="h-4 w-4 text-salmon" aria-hidden="true" />
             100% рециклиран картон
           </span>
 
