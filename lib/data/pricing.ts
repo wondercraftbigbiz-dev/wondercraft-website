@@ -17,8 +17,8 @@ export const plans: Plan[] = [
   {
     id: 'standard',
     name: 'Стандартен',
-    lev: '60 лв.',
-    euro: '30,67 €',
+    lev: '58,67 лв.',
+    euro: '30 €',
     tagline: 'Класическата къщичка, готова за игра.',
     features: [
       '100% рециклиран картон',
@@ -34,8 +34,8 @@ export const plans: Plan[] = [
   {
     id: 'custom',
     name: 'Персонализиран',
-    lev: '80 лв.',
-    euro: '40,90 €',
+    lev: '78,23 лв.',
+    euro: '40 €',
     tagline: 'С името на детето, отпечатано върху къщичката.',
     features: [
       'Всичко от стандартния модел',
@@ -52,6 +52,6 @@ export const plans: Plan[] = [
 
 // The lowest price, used in hero and metadata copy.
 export const startingPrice = {
-  lev: '60 лв.',
-  euro: '30,67 €',
+  lev: '58,67 лв.',
+  euro: '30 €',
 }
