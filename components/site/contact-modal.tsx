@@ -3,8 +3,11 @@
 import { useEffect, useRef, useState } from 'react'
 import { Check, X } from 'lucide-react'
 import { plans, type Plan } from '@/lib/data/pricing'
+import { EcontPicker, type EcontSelection } from './econt-picker'
+import { useShippingQuote } from './use-shipping-quote'
+import { formatLev, planLev, totalLev } from '@/lib/econt/format'
 
-type Errors = Partial<Record<'name' | 'phone' | 'city' | 'model', string>>
+type Errors = Partial<Record<'name' | 'phone' | 'office' | 'model', string>>
 
 export function ContactModal({
   initialModel,
@@ -19,8 +22,10 @@ export function ContactModal({
   const [model, setModel] = useState<Plan['id']>(initialModel)
   const [errors, setErrors] = useState<Errors>({})
   const [submitted, setSubmitted] = useState(false)
+  const [delivery, setDelivery] = useState<EcontSelection | null>(null)
 
   const isCustom = model === 'custom'
+  const shipping = useShippingQuote(delivery?.office.code ?? null)
 
   // Lock body scroll while open.
   useEffect(() => {
@@ -73,14 +78,30 @@ export function ContactModal({
     if (!String(data.get('name') ?? '').trim()) next.name = 'Моля, въведете име.'
     if (!String(data.get('phone') ?? '').trim())
       next.phone = 'Моля, въведете телефон.'
-    if (!String(data.get('city') ?? '').trim())
-      next.city = 'Моля, въведете град или офис на куриер.'
+    if (!delivery) next.office = 'Моля, изберете офис на Еконт.'
     if (!String(data.get('model') ?? '').trim())
       next.model = 'Моля, изберете модел.'
 
     setErrors(next)
     if (Object.keys(next).length === 0) {
-      // Prototype: nothing is sent. Show fake success state.
+      // Prototype: nothing is sent anywhere and no shipment is created. The log
+      // is here so the captured Econt office can be checked in DevTools.
+      console.log('[prototype order]', {
+        name: data.get('name'),
+        phone: data.get('phone'),
+        model,
+        printName: data.get('printName'),
+        customization: data.get('customization'),
+        message: data.get('message'),
+        delivery: delivery && {
+          cityId: delivery.city.id,
+          cityName: delivery.city.name,
+          officeId: delivery.office.id,
+          officeCode: delivery.office.code,
+          officeName: delivery.office.name,
+        },
+        shippingPrice: shipping.quote?.total ?? null,
+      })
       setSubmitted(true)
     }
   }
@@ -160,9 +181,16 @@ export function ContactModal({
                 />
               </Field>
 
-              <Field label="Град / офис на куриер" error={errors.city}>
-                <input name="city" type="text" className="modal-input" />
-              </Field>
+              <EcontPicker
+                value={delivery}
+                onChange={(selection) => {
+                  setDelivery(selection)
+                  // Clear the error as soon as it stops being true, rather than
+                  // leaving it up until the next submit.
+                  if (selection) setErrors((prev) => ({ ...prev, office: undefined }))
+                }}
+                error={errors.office}
+              />
 
               <Field label="Модел" error={errors.model}>
                 <select
@@ -203,6 +231,35 @@ export function ContactModal({
               </Field>
             </div>
 
+            {delivery && (
+              <dl className="mt-5 flex flex-col gap-1.5 rounded-[8px] border-2 border-charcoal bg-kraft/40 px-4 py-3 text-sm">
+                <div className="flex items-baseline justify-between gap-3">
+                  <dt className="text-charcoal-soft">
+                    {plans.find((p) => p.id === model)?.name}
+                  </dt>
+                  <dd className="font-semibold text-charcoal">{planLev(model)}</dd>
+                </div>
+                <div className="flex items-baseline justify-between gap-3">
+                  <dt className="text-charcoal-soft">Доставка до офис</dt>
+                  <dd className="font-semibold text-charcoal">
+                    {shipping.loading
+                      ? 'Изчисляване…'
+                      : shipping.quote?.total != null
+                        ? formatLev(shipping.quote.total)
+                        : 'по тарифа на Еконт'}
+                  </dd>
+                </div>
+                <div className="mt-1 flex items-baseline justify-between gap-3 border-t-2 border-charcoal/20 pt-2">
+                  <dt className="font-display font-semibold text-charcoal">Общо</dt>
+                  <dd className="font-display font-semibold text-charcoal">
+                    {shipping.quote?.total != null
+                      ? totalLev(model, shipping.quote.total)
+                      : planLev(model) + ' + доставка'}
+                  </dd>
+                </div>
+              </dl>
+            )}
+
             <button
               type="submit"
               className="mt-6 inline-flex min-h-11 w-full items-center justify-center rounded-[8px] border-2 border-charcoal bg-salmon px-6 py-3 font-display text-base font-semibold text-charcoal transition-all duration-150 hover:bg-salmon-hover hover:scale-[1.02]"
@@ -210,7 +267,7 @@ export function ContactModal({
               Поръчай сега
             </button>
             <p className="mt-3 text-center text-sm text-charcoal-soft">
-              Ще се свържем с вас, за да потвърдим детайлите.
+              Плащането е онлайн. Ще се свържем с вас, за да потвърдим детайлите.
             </p>
           </form>
         )}

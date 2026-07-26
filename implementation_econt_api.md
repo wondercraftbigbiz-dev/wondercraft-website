@@ -232,24 +232,21 @@ prototype affordance and should carry a comment saying so.
 
 ---
 
-## 4. Build order
+## 4. Build checklist
 
-Each step is independently verifiable — don't start the next until the current one is
-green in a browser.
-
-1. **Credential check** (step 0). ~5 min. Capture a real response body to a scratch file.
-2. **`lib/econt/client.ts` + `/api/econt/cities`.** Verify by visiting
-   `localhost:3000/api/econt/cities` directly. No UI yet.
-3. **`/api/econt/offices`.** Same — hit it with `?cityId=` for Sofia and eyeball it.
-4. **Types**, written from the captured responses.
-5. **Picker component**, wired to the two routes. Drop it on a scratch page before
-   putting it in the modal — debugging a combobox inside a focus trap is worse.
-6. **Modal integration** + validation.
-7. **Shipping price**, last, because it's the only piece that's decorative if it fails.
-8. **Mobile pass** at 375px, plus keyboard-only run-through.
-
-Steps 1–4 are half a day. Step 5 is the bulk of the work — a searchable combobox with
-proper keyboard support is where the time actually goes, not the API.
+- [ ] 1. **Credential check** (§0) — confirm which demo password works, capture a real
+      response body. *Blocked in the build sandbox: `demo.econt.com` is unreachable from
+      it (curl exit 56). Must be run on a machine with open network.*
+- [x] 2. **`lib/econt/config.ts` + `lib/econt/client.ts` + `/api/econt/cities`.**
+- [x] 3. **`/api/econt/offices`.**
+- [x] 4. **`lib/econt/types.ts`.** Written from Econt's published shapes rather than a
+      captured response, since step 1 is blocked — see §8.
+- [x] 5. **Picker component** (`components/site/econt-picker.tsx`), wired to both routes.
+- [x] 6. **Modal integration** + validation.
+- [x] 7. **Shipping price** (`/api/econt/shipping-price` + summary line).
+- [x] 8. **Checks** — TypeScript, production build, and a 13-assertion browser pass
+      against mocked API responses. See §8.
+- [ ] 9. **Live pass** — real Econt responses. Requires step 1; see §8.2.
 
 ---
 
@@ -290,3 +287,68 @@ revisit when the information exists:
    the quoted shipping prices are indicative only.
 2. **Econtomat lockers**, currently filtered out (§2.1). If the flat-packed box turns out
    to fit locker limits, drop the filter and add a delivery-type toggle to the picker.
+
+---
+
+## 8. What was verified, and what wasn't
+
+### 8.1 Verified
+
+TypeScript and `next build` pass, and all three routes register as dynamic. Input
+validation and the error paths were exercised against the live route handlers
+(`400` on a missing `cityId`, `400` on a missing `officeCode`, upstream failure
+surfaced with a Bulgarian message and the technical detail logged server-side only).
+
+The picker was driven in a real browser at 375px with the API responses mocked —
+13 assertions, all passing: Latin query matching a Cyrillic city, offices loading after
+city selection, submit blocked without an office, the error clearing on selection,
+the quote and total arithmetic, Escape scoping, city change clearing a stale office,
+no horizontal overflow, and the success state. No runtime console errors.
+
+That pass found two real bugs, both fixed:
+
+- **`parseLev` returned `NaN` for every price.** Stripping non-numeric characters from
+  `"58,67 лв."` leaves the trailing period of "лв." behind, giving `"58.67."`. The
+  total silently fell back to the item price with delivery omitted — the summary
+  showed a plausible wrong number rather than failing visibly. Now matches the numeric
+  substring explicitly.
+- **Escape in the city dropdown closed the entire modal.** React attaches synthetic
+  handlers to the root container, which is below `document`, so `stopPropagation()`
+  from an `onKeyDown` prop could not stop the modal's document-level Escape listener.
+  Dismissing the dropdown wiped every field the user had filled in. Now intercepted by
+  a capture-phase listener on `document`, which runs first.
+
+### 8.2 Not verified — needs a machine with network access
+
+Everything touching Econt's actual responses. The build sandbox cannot reach
+`demo.econt.com`, so the request and response shapes come from Econt's documentation.
+
+In rough order of likelihood to need adjustment:
+
+1. **Credentials** — which demo password works (§0).
+2. **`getOffices` parameter name.** Sent as `cityID` (capital ID) per the docs. If
+   offices come back empty for a valid city, try `cityId`.
+3. **The price quote.** The most fragile piece — `createLabel` validates the sender
+   address, and the Blagoevgrad street in `lib/econt/config.ts` is a placeholder. If it
+   is rejected, switch `senderAddress` for a `senderOfficeCode` taken from
+   `/api/econt/offices?cityId=<Blagoevgrad>`. A failed quote degrades to
+   "по тарифа на Еконт" rather than breaking the flow, so this can be fixed after the
+   rest is confirmed working.
+4. **Field nullability** in `RawOffice` / `RawCity` — read defensively throughout, but
+   worth confirming that office names and addresses actually populate.
+5. **Working hours format.** Handled as both `"09:00"` strings and seconds-from-midnight
+   numbers, since Econt's docs disagree with each other; whichever arrives, unparseable
+   values are dropped rather than rendered wrong.
+
+To run the live pass:
+
+```bash
+cp .env.example .env.local   # fill in the working credentials
+npm run dev
+curl localhost:3000/api/econt/cities | head -c 400
+curl 'localhost:3000/api/econt/offices?cityId=41' | head -c 400
+```
+
+Then open the order modal and pick a real Sofia office. Server-side errors are logged
+with the full Econt message under `[econt/*]` in the dev console; the browser only ever
+sees the Bulgarian summary.
