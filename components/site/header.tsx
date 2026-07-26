@@ -18,9 +18,9 @@ export function Header() {
           <Image
             src="/wondercraft_logo_svg.svg"
             alt="Wondercraft Logo"
-            width={160}
-            height={44}
-            className="h-10 w-auto object-contain"
+            width={220}
+            height={52}
+            className="h-11 w-auto object-contain"
             priority
           />
         </a>
