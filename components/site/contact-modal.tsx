@@ -1,10 +1,13 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { Check, X } from 'lucide-react'
+import { Check, MapPin, X } from 'lucide-react'
 import { plans, type Plan } from '@/lib/data/pricing'
+import type { EcontSelection } from './econt-picker'
+import { DeliveryModal } from './delivery-modal'
+import { formatLev, planLev, totalLev } from '@/lib/econt/format'
 
-type Errors = Partial<Record<'name' | 'phone' | 'city' | 'model', string>>
+type Errors = Partial<Record<'name' | 'phone' | 'office' | 'model', string>>
 
 export function ContactModal({
   initialModel,
@@ -19,6 +22,9 @@ export function ContactModal({
   const [model, setModel] = useState<Plan['id']>(initialModel)
   const [errors, setErrors] = useState<Errors>({})
   const [submitted, setSubmitted] = useState(false)
+  const [delivery, setDelivery] = useState<EcontSelection | null>(null)
+  const [shippingPrice, setShippingPrice] = useState<number | null>(null)
+  const [deliveryOpen, setDeliveryOpen] = useState(false)
 
   const isCustom = model === 'custom'
 
@@ -36,8 +42,10 @@ export function ContactModal({
     firstFieldRef.current?.focus()
   }, [])
 
-  // Escape to close + focus trap.
+  // Escape to close + focus trap. Suspended while the delivery dialog is open,
+  // so it owns the keyboard on its own.
   useEffect(() => {
+    if (deliveryOpen) return
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.preventDefault()
@@ -62,7 +70,7 @@ export function ContactModal({
     }
     document.addEventListener('keydown', onKeyDown)
     return () => document.removeEventListener('keydown', onKeyDown)
-  }, [onClose])
+  }, [onClose, deliveryOpen])
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -73,14 +81,30 @@ export function ContactModal({
     if (!String(data.get('name') ?? '').trim()) next.name = 'Моля, въведете име.'
     if (!String(data.get('phone') ?? '').trim())
       next.phone = 'Моля, въведете телефон.'
-    if (!String(data.get('city') ?? '').trim())
-      next.city = 'Моля, въведете град или офис на куриер.'
+    if (!delivery) next.office = 'Моля, изберете офис на Еконт.'
     if (!String(data.get('model') ?? '').trim())
       next.model = 'Моля, изберете модел.'
 
     setErrors(next)
     if (Object.keys(next).length === 0) {
-      // Prototype: nothing is sent. Show fake success state.
+      // Prototype: nothing is sent anywhere and no shipment is created. The log
+      // is here so the captured Econt office can be checked in DevTools.
+      console.log('[prototype order]', {
+        name: data.get('name'),
+        phone: data.get('phone'),
+        model,
+        printName: data.get('printName'),
+        customization: data.get('customization'),
+        message: data.get('message'),
+        delivery: delivery && {
+          cityId: delivery.city.id,
+          cityName: delivery.city.name,
+          officeId: delivery.office.id,
+          officeCode: delivery.office.code,
+          officeName: delivery.office.name,
+        },
+        shippingPrice,
+      })
       setSubmitted(true)
     }
   }
@@ -160,10 +184,6 @@ export function ContactModal({
                 />
               </Field>
 
-              <Field label="Град / офис на куриер" error={errors.city}>
-                <input name="city" type="text" className="modal-input" />
-              </Field>
-
               <Field label="Модел" error={errors.model}>
                 <select
                   name="model"
@@ -201,7 +221,74 @@ export function ContactModal({
                   className="modal-input resize-none"
                 />
               </Field>
+
+              <div>
+                <span className="mb-1.5 block font-display text-sm font-semibold text-charcoal">
+                  Доставка
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setDeliveryOpen(true)}
+                  aria-haspopup="dialog"
+                  className="flex w-full items-center gap-3 rounded-[8px] border-2 border-charcoal bg-cream px-3 py-2.5 text-left transition-colors hover:bg-kraft/50"
+                >
+                  <MapPin
+                    className="h-5 w-5 shrink-0 text-charcoal-soft"
+                    aria-hidden="true"
+                  />
+                  {delivery ? (
+                    <span className="min-w-0 flex-1">
+                      <span className="block font-display text-sm font-semibold text-charcoal">
+                        {delivery.office.name}
+                      </span>
+                      <span className="block truncate text-sm text-charcoal-soft">
+                        {delivery.city.name}
+                        {delivery.office.address ? `, ${delivery.office.address}` : ''}
+                      </span>
+                    </span>
+                  ) : (
+                    <span className="flex-1 text-base text-charcoal-soft">
+                      Изберете офис на Еконт
+                    </span>
+                  )}
+                  <span className="shrink-0 font-display text-sm font-semibold text-charcoal">
+                    {delivery ? 'Промени' : 'Избери'}
+                  </span>
+                </button>
+                {errors.office && (
+                  <span className="mt-1 block text-sm font-medium text-salmon">
+                    {errors.office}
+                  </span>
+                )}
+              </div>
             </div>
+
+            {delivery && (
+              <dl className="mt-5 flex flex-col gap-1.5 rounded-[8px] border-2 border-charcoal bg-kraft/40 px-4 py-3 text-sm">
+                <div className="flex items-baseline justify-between gap-3">
+                  <dt className="text-charcoal-soft">
+                    {plans.find((p) => p.id === model)?.name}
+                  </dt>
+                  <dd className="font-semibold text-charcoal">{planLev(model)}</dd>
+                </div>
+                <div className="flex items-baseline justify-between gap-3">
+                  <dt className="text-charcoal-soft">Доставка до офис</dt>
+                  <dd className="font-semibold text-charcoal">
+                    {shippingPrice != null
+                      ? formatLev(shippingPrice)
+                      : 'по тарифа на Еконт'}
+                  </dd>
+                </div>
+                <div className="mt-1 flex items-baseline justify-between gap-3 border-t-2 border-charcoal/20 pt-2">
+                  <dt className="font-display font-semibold text-charcoal">Общо</dt>
+                  <dd className="font-display font-semibold text-charcoal">
+                    {shippingPrice != null
+                      ? totalLev(model, shippingPrice)
+                      : planLev(model) + ' + доставка'}
+                  </dd>
+                </div>
+              </dl>
+            )}
 
             <button
               type="submit"
@@ -210,7 +297,7 @@ export function ContactModal({
               Поръчай сега
             </button>
             <p className="mt-3 text-center text-sm text-charcoal-soft">
-              Ще се свържем с вас, за да потвърдим детайлите.
+              Плащането е онлайн. Ще се свържем с вас, за да потвърдим детайлите.
             </p>
           </form>
         )}
@@ -233,6 +320,19 @@ export function ContactModal({
         }
         .modal-input::placeholder { color: var(--color-charcoal-soft); }
       `}</style>
+
+      {deliveryOpen && (
+        <DeliveryModal
+          initial={delivery}
+          onClose={() => setDeliveryOpen(false)}
+          onConfirm={(selection, price) => {
+            setDelivery(selection)
+            setShippingPrice(price)
+            setErrors((prev) => ({ ...prev, office: undefined }))
+            setDeliveryOpen(false)
+          }}
+        />
+      )}
     </div>
   )
 }
