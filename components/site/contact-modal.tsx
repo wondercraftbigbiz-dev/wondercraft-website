@@ -1,10 +1,10 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { Check, X } from 'lucide-react'
+import { Check, MapPin, X } from 'lucide-react'
 import { plans, type Plan } from '@/lib/data/pricing'
-import { EcontPicker, type EcontSelection } from './econt-picker'
-import { useShippingQuote } from './use-shipping-quote'
+import type { EcontSelection } from './econt-picker'
+import { DeliveryModal } from './delivery-modal'
 import { formatLev, planLev, totalLev } from '@/lib/econt/format'
 
 type Errors = Partial<Record<'name' | 'phone' | 'office' | 'model', string>>
@@ -23,9 +23,10 @@ export function ContactModal({
   const [errors, setErrors] = useState<Errors>({})
   const [submitted, setSubmitted] = useState(false)
   const [delivery, setDelivery] = useState<EcontSelection | null>(null)
+  const [shippingPrice, setShippingPrice] = useState<number | null>(null)
+  const [deliveryOpen, setDeliveryOpen] = useState(false)
 
   const isCustom = model === 'custom'
-  const shipping = useShippingQuote(delivery?.office.code ?? null)
 
   // Lock body scroll while open.
   useEffect(() => {
@@ -41,8 +42,10 @@ export function ContactModal({
     firstFieldRef.current?.focus()
   }, [])
 
-  // Escape to close + focus trap.
+  // Escape to close + focus trap. Suspended while the delivery dialog is open,
+  // so it owns the keyboard on its own.
   useEffect(() => {
+    if (deliveryOpen) return
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.preventDefault()
@@ -67,7 +70,7 @@ export function ContactModal({
     }
     document.addEventListener('keydown', onKeyDown)
     return () => document.removeEventListener('keydown', onKeyDown)
-  }, [onClose])
+  }, [onClose, deliveryOpen])
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -100,7 +103,7 @@ export function ContactModal({
           officeCode: delivery.office.code,
           officeName: delivery.office.name,
         },
-        shippingPrice: shipping.quote?.total ?? null,
+        shippingPrice,
       })
       setSubmitted(true)
     }
@@ -181,17 +184,6 @@ export function ContactModal({
                 />
               </Field>
 
-              <EcontPicker
-                value={delivery}
-                onChange={(selection) => {
-                  setDelivery(selection)
-                  // Clear the error as soon as it stops being true, rather than
-                  // leaving it up until the next submit.
-                  if (selection) setErrors((prev) => ({ ...prev, office: undefined }))
-                }}
-                error={errors.office}
-              />
-
               <Field label="Модел" error={errors.model}>
                 <select
                   name="model"
@@ -229,6 +221,46 @@ export function ContactModal({
                   className="modal-input resize-none"
                 />
               </Field>
+
+              <div>
+                <span className="mb-1.5 block font-display text-sm font-semibold text-charcoal">
+                  Доставка
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setDeliveryOpen(true)}
+                  aria-haspopup="dialog"
+                  className="flex w-full items-center gap-3 rounded-[8px] border-2 border-charcoal bg-cream px-3 py-2.5 text-left transition-colors hover:bg-kraft/50"
+                >
+                  <MapPin
+                    className="h-5 w-5 shrink-0 text-charcoal-soft"
+                    aria-hidden="true"
+                  />
+                  {delivery ? (
+                    <span className="min-w-0 flex-1">
+                      <span className="block font-display text-sm font-semibold text-charcoal">
+                        {delivery.office.name}
+                      </span>
+                      <span className="block truncate text-sm text-charcoal-soft">
+                        {delivery.city.name}
+                        {delivery.office.address ? `, ${delivery.office.address}` : ''}
+                      </span>
+                    </span>
+                  ) : (
+                    <span className="flex-1 text-base text-charcoal-soft">
+                      Изберете офис на Еконт
+                    </span>
+                  )}
+                  <span className="shrink-0 font-display text-sm font-semibold text-charcoal">
+                    {delivery ? 'Промени' : 'Избери'}
+                  </span>
+                </button>
+                {errors.office && (
+                  <span className="mt-1 block text-sm font-medium text-salmon">
+                    {errors.office}
+                  </span>
+                )}
+              </div>
             </div>
 
             {delivery && (
@@ -242,18 +274,16 @@ export function ContactModal({
                 <div className="flex items-baseline justify-between gap-3">
                   <dt className="text-charcoal-soft">Доставка до офис</dt>
                   <dd className="font-semibold text-charcoal">
-                    {shipping.loading
-                      ? 'Изчисляване…'
-                      : shipping.quote?.total != null
-                        ? formatLev(shipping.quote.total)
-                        : 'по тарифа на Еконт'}
+                    {shippingPrice != null
+                      ? formatLev(shippingPrice)
+                      : 'по тарифа на Еконт'}
                   </dd>
                 </div>
                 <div className="mt-1 flex items-baseline justify-between gap-3 border-t-2 border-charcoal/20 pt-2">
                   <dt className="font-display font-semibold text-charcoal">Общо</dt>
                   <dd className="font-display font-semibold text-charcoal">
-                    {shipping.quote?.total != null
-                      ? totalLev(model, shipping.quote.total)
+                    {shippingPrice != null
+                      ? totalLev(model, shippingPrice)
                       : planLev(model) + ' + доставка'}
                   </dd>
                 </div>
@@ -290,6 +320,19 @@ export function ContactModal({
         }
         .modal-input::placeholder { color: var(--color-charcoal-soft); }
       `}</style>
+
+      {deliveryOpen && (
+        <DeliveryModal
+          initial={delivery}
+          onClose={() => setDeliveryOpen(false)}
+          onConfirm={(selection, price) => {
+            setDelivery(selection)
+            setShippingPrice(price)
+            setErrors((prev) => ({ ...prev, office: undefined }))
+            setDeliveryOpen(false)
+          }}
+        />
+      )}
     </div>
   )
 }
