@@ -6,6 +6,19 @@ import { faqItems } from '@/lib/data/faq'
 import { Section } from './section'
 import { Reveal } from './reveal'
 
+/** Разделя текста на части, като **така оградените** се показват полужирни. */
+function renderAnswer(answer: string) {
+  return answer.split(/\*\*(.+?)\*\*/g).map((part, i) =>
+    i % 2 === 1 ? (
+      <strong key={i} className="font-semibold text-charcoal">
+        {part}
+      </strong>
+    ) : (
+      part
+    ),
+  )
+}
+
 export function Faq() {
   const [openIndex, setOpenIndex] = useState<number | null>(0)
   const baseId = useId()
@@ -58,7 +71,7 @@ export function Faq() {
                   className="px-5 pb-5"
                 >
                   <p className="text-base leading-relaxed text-charcoal-soft">
-                    {item.answer}
+                    {renderAnswer(item.answer)}
                   </p>
                 </div>
               </li>
