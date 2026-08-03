@@ -1,8 +1,7 @@
 import { Reveal } from './reveal'
 
-// NOTE: The "1200+ mothers" figure is INVENTED for the prototype. Do not publish live.
 const metrics = [
-  { value: '1200+', label: 'доволни семейства' },
+  { value: '0', label: 'нужни инструменти' },
   { value: '15 мин', label: 'средно време за сглобяване' },
   { value: '100%', label: 'рециклиран картон' },
   { value: '30 дни', label: 'право на връщане' },
