@@ -1,6 +1,7 @@
 import Image from 'next/image'
 import { Check } from 'lucide-react'
 import { plans } from '@/lib/data/pricing'
+import { cn } from '@/lib/utils'
 import { CtaButton } from './cta-button'
 import { Reveal } from './reveal'
 
@@ -15,7 +16,7 @@ export function Pricing() {
         <Reveal>
           <h2
             id="pricing-heading"
-            className="max-w-2xl text-balance font-display text-[28px] font-semibold leading-[1.15] tracking-[-0.015em] text-charcoal md:text-4xl"
+            className="max-w-2xl text-balance font-display text-[32px] font-bold leading-[1.1] tracking-[-0.015em] text-charcoal md:text-5xl"
           >
             Един ясен избор, две цени
           </h2>
@@ -28,9 +29,22 @@ export function Pricing() {
         <div className="mt-10 grid gap-6 lg:grid-cols-2">
           {plans.map((plan) => (
             <Reveal key={plan.id}>
-              <div className="flex h-full flex-col overflow-hidden rounded-[4px] border-2 border-charcoal bg-cream">
+              <div
+                className={cn(
+                  'flex h-full flex-col overflow-hidden rounded-[4px] border-2 bg-cream',
+                  plan.featured
+                    ? 'border-salmon shadow-[6px_6px_0_var(--color-charcoal)] md:-translate-y-2'
+                    : 'border-charcoal',
+                )}
+              >
                 {/* Corrugated top edge — the signature cardboard cross-section */}
-                <div className="corrugation h-3 w-full bg-kraft" aria-hidden="true" />
+                <div
+                  className={cn(
+                    'corrugation h-3 w-full',
+                    plan.featured ? 'bg-salmon/60' : 'bg-kraft',
+                  )}
+                  aria-hidden="true"
+                />
 
                 <div className="flex flex-1 flex-col p-6 md:p-8">
                   <div className="flex items-start justify-between gap-4">
