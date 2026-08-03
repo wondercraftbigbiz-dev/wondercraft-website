@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Check, X } from 'lucide-react'
 import { plans, type Plan } from '@/lib/data/pricing'
 
@@ -19,6 +19,22 @@ export function ContactModal({
   const [model, setModel] = useState<Plan['id']>(initialModel)
   const [errors, setErrors] = useState<Errors>({})
   const [submitted, setSubmitted] = useState(false)
+
+  // Play in on mount, and delay the actual unmount briefly on close so the
+  // exit transition (see .modal-backdrop/.modal-sheet in globals.css) can play.
+  const [isVisible, setIsVisible] = useState(false)
+  const [isClosing, setIsClosing] = useState(false)
+
+  useEffect(() => {
+    const raf = requestAnimationFrame(() => setIsVisible(true))
+    return () => cancelAnimationFrame(raf)
+  }, [])
+
+  const requestClose = useCallback(() => {
+    setIsClosing(true)
+    setIsVisible(false)
+    window.setTimeout(onClose, 200)
+  }, [onClose])
 
   const isCustom = model === 'custom'
 
@@ -41,7 +57,7 @@ export function ContactModal({
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.preventDefault()
-        onClose()
+        requestClose()
         return
       }
       if (e.key === 'Tab') {
@@ -62,7 +78,7 @@ export function ContactModal({
     }
     document.addEventListener('keydown', onKeyDown)
     return () => document.removeEventListener('keydown', onKeyDown)
-  }, [onClose])
+  }, [requestClose])
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -87,9 +103,11 @@ export function ContactModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center overflow-y-auto bg-charcoal/60 p-0 sm:items-center sm:p-5"
+      className={`modal-backdrop fixed inset-0 z-50 flex items-end justify-center overflow-y-auto bg-charcoal/60 p-0 sm:items-center sm:p-5 ${
+        isVisible && !isClosing ? 'is-open' : ''
+      }`}
       onMouseDown={(e) => {
-        if (e.target === e.currentTarget) onClose()
+        if (e.target === e.currentTarget) requestClose()
       }}
     >
       <div
@@ -97,10 +115,11 @@ export function ContactModal({
         role="dialog"
         aria-modal="true"
         aria-labelledby="modal-title"
-        style={{ animation: 'modal-rise 180ms ease-out' }}
-        className="relative w-full max-w-lg rounded-t-[8px] border-2 border-charcoal bg-cream sm:rounded-[8px]"
+        className={`modal-sheet relative w-full max-w-lg rounded-t-xl border border-border-soft bg-cream shadow-soft-lg sm:rounded-xl ${
+          isVisible && !isClosing ? 'is-open' : ''
+        }`}
       >
-        <div className="flex items-center justify-between border-b-2 border-charcoal px-6 py-4">
+        <div className="flex items-center justify-between border-b border-border-soft px-6 py-4">
           <h2
             id="modal-title"
             className="font-display text-xl font-semibold text-charcoal"
@@ -110,8 +129,8 @@ export function ContactModal({
           <button
             type="button"
             aria-label="Затвори"
-            onClick={onClose}
-            className="inline-flex h-9 w-9 items-center justify-center rounded-[8px] border-2 border-charcoal bg-cream text-charcoal"
+            onClick={requestClose}
+            className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-border-soft bg-cream text-charcoal"
           >
             <X className="h-5 w-5" aria-hidden="true" />
           </button>
@@ -119,7 +138,7 @@ export function ContactModal({
 
         {submitted ? (
           <div className="px-6 py-10 text-center">
-            <span className="mx-auto inline-flex h-14 w-14 items-center justify-center rounded-[8px] border-2 border-charcoal bg-salmon">
+            <span className="mx-auto inline-flex h-14 w-14 items-center justify-center rounded-full border border-border-soft bg-salmon">
               <Check className="h-7 w-7 text-charcoal" aria-hidden="true" />
             </span>
             <p className="mt-5 text-pretty text-base leading-relaxed text-charcoal">
@@ -128,8 +147,8 @@ export function ContactModal({
             </p>
             <button
               type="button"
-              onClick={onClose}
-              className="mt-6 inline-flex min-h-11 items-center justify-center rounded-[8px] border-2 border-charcoal bg-transparent px-6 py-3 font-display text-base font-semibold text-charcoal"
+              onClick={requestClose}
+              className="mt-6 inline-flex min-h-11 items-center justify-center rounded-md border border-border-soft bg-transparent px-6 py-3 font-display text-base font-semibold text-charcoal"
             >
               Затвори
             </button>
@@ -205,7 +224,7 @@ export function ContactModal({
 
             <button
               type="submit"
-              className="mt-6 inline-flex min-h-11 w-full items-center justify-center rounded-[8px] border-2 border-charcoal bg-salmon px-6 py-3 font-display text-base font-semibold text-charcoal transition-all duration-150 hover:bg-salmon-hover hover:scale-[1.02]"
+              className="mt-6 inline-flex min-h-11 w-full items-center justify-center rounded-md border border-border-soft bg-salmon px-6 py-3 font-display text-base font-semibold text-charcoal shadow-soft transition-all duration-200 ease-[cubic-bezier(0.34,1.56,0.64,1)] hover:-translate-y-0.5 hover:scale-[1.02] hover:bg-salmon-hover hover:shadow-soft-lg"
             >
               Поръчай сега
             </button>
@@ -217,19 +236,19 @@ export function ContactModal({
       </div>
 
       <style>{`
-        @keyframes modal-rise {
-          from { opacity: 0; transform: translateY(8px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
         .modal-input {
           width: 100%;
-          border: 2px solid var(--color-charcoal);
-          border-radius: 8px;
+          border: 1px solid var(--color-border-soft);
+          border-radius: var(--radius-md);
           background: var(--color-cream);
           color: var(--color-charcoal);
           padding: 0.625rem 0.75rem;
           font-size: 16px;
           font-family: var(--font-sans);
+          transition: border-color 150ms ease-out;
+        }
+        .modal-input:focus-visible {
+          border-color: var(--color-salmon-deep);
         }
         .modal-input::placeholder { color: var(--color-charcoal-soft); }
       `}</style>
@@ -253,7 +272,7 @@ function Field({
       </span>
       {children}
       {error && (
-        <span className="mt-1 block text-sm font-medium text-salmon">{error}</span>
+        <span className="mt-1 block text-sm font-medium text-salmon-deep">{error}</span>
       )}
     </label>
   )

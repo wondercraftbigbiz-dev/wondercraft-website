@@ -30,7 +30,7 @@ export function Faq() {
             return (
               <li
                 key={item.question}
-                className="overflow-hidden rounded-[4px] border-2 border-charcoal bg-cream"
+                className="overflow-hidden rounded-lg border border-border-soft bg-cream shadow-soft"
               >
                 <h3>
                   <button
@@ -43,8 +43,8 @@ export function Faq() {
                   >
                     {item.question}
                     <Plus
-                      className={`h-5 w-5 shrink-0 transition-transform duration-200 ${
-                        isOpen ? 'rotate-45 text-salmon' : 'text-charcoal'
+                      className={`h-5 w-5 shrink-0 transition-transform duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${
+                        isOpen ? 'rotate-45 text-salmon-deep' : 'text-charcoal'
                       }`}
                       aria-hidden="true"
                     />
@@ -54,12 +54,14 @@ export function Faq() {
                   id={panelId}
                   role="region"
                   aria-labelledby={buttonId}
-                  hidden={!isOpen}
-                  className="px-5 pb-5"
+                  aria-hidden={!isOpen}
+                  className={`faq-panel ${isOpen ? 'is-open' : ''}`}
                 >
-                  <p className="text-base leading-relaxed text-charcoal-soft">
-                    {item.answer}
-                  </p>
+                  <div>
+                    <p className="px-5 pb-5 text-base leading-relaxed text-charcoal-soft">
+                      {item.answer}
+                    </p>
+                  </div>
                 </div>
               </li>
             )

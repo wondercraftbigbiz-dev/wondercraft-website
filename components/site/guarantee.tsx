@@ -7,9 +7,12 @@ export function Guarantee() {
   return (
     <Section id="guarantee" labelledBy="guarantee-heading">
       <Reveal>
-        <div className="flex flex-col items-start gap-6 rounded-[4px] border-2 border-charcoal bg-sage p-8 md:flex-row md:items-center md:gap-10 md:p-12">
-          <span className="inline-flex h-14 w-14 shrink-0 items-center justify-center rounded-[4px] border-2 border-charcoal bg-cream">
-            <ShieldCheck className="h-7 w-7 text-salmon" aria-hidden="true" />
+        <div className="flex flex-col items-start gap-6 rounded-xl border border-border-soft bg-sage p-8 shadow-soft md:flex-row md:items-center md:gap-10 md:p-12">
+          <span className="inline-flex h-14 w-14 shrink-0 items-center justify-center rounded-lg border border-border-soft bg-cream">
+            <ShieldCheck
+              className="float-loop h-7 w-7 text-salmon-deep"
+              aria-hidden="true"
+            />
           </span>
           <div className="flex-1">
             <h2

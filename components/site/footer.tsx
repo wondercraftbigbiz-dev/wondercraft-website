@@ -3,7 +3,7 @@ import Image from 'next/image'
 export function Footer() {
   const year = new Date().getFullYear()
   return (
-    <footer className="border-t-2 border-charcoal bg-cream px-5 py-10">
+    <footer className="border-t border-border-soft bg-cream px-5 py-10">
       <div className="mx-auto flex w-full max-w-[1120px] flex-col gap-6 md:flex-row md:items-center md:justify-between">
         <div>
           <a href="#hero" className="inline-block" aria-label="Wondercraft Начало">
@@ -22,19 +22,28 @@ export function Footer() {
         </div>
 
         <nav aria-label="Долна навигация" className="flex flex-wrap gap-x-6 gap-y-2">
-          <a href="#pricing" className="text-sm font-medium text-charcoal hover:text-salmon">
+          <a
+            href="#pricing"
+            className="link-underline text-sm font-medium text-charcoal hover:text-salmon-deep"
+          >
             Цени
           </a>
-          <a href="#assembly" className="text-sm font-medium text-charcoal hover:text-salmon">
+          <a
+            href="#assembly"
+            className="link-underline text-sm font-medium text-charcoal hover:text-salmon-deep"
+          >
             Сглобяване
           </a>
-          <a href="#faq" className="text-sm font-medium text-charcoal hover:text-salmon">
+          <a
+            href="#faq"
+            className="link-underline text-sm font-medium text-charcoal hover:text-salmon-deep"
+          >
             Въпроси
           </a>
         </nav>
       </div>
 
-      <div className="mx-auto mt-8 w-full max-w-[1120px] border-t-2 border-kraft pt-6">
+      <div className="mx-auto mt-8 w-full max-w-[1120px] border-t border-border-soft pt-6">
         <p className="text-sm text-charcoal-soft">
           © {year} Wondercraft. Всички права запазени.
         </p>

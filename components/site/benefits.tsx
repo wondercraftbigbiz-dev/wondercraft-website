@@ -34,9 +34,9 @@ export function Benefits() {
 
       <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
         {benefits.map((benefit, i) => (
-          <Reveal key={benefit.title}>
-            <div className="h-full rounded-[4px] border-2 border-charcoal bg-cream p-6">
-              <span className="inline-flex h-12 w-12 items-center justify-center rounded-[4px] border-2 border-charcoal bg-sage">
+          <Reveal key={benefit.title} delay={i * 80}>
+            <div className="card-hover-lift group h-full rounded-lg border border-border-soft bg-cream p-6 shadow-soft">
+              <span className="inline-flex h-12 w-12 items-center justify-center rounded-md border border-border-soft bg-sage transition-transform duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] group-hover:-translate-y-0.5 group-hover:-rotate-3">
                 <benefit.icon
                   className="h-6 w-6 text-charcoal"
                   aria-hidden="true"
