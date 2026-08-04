@@ -3,6 +3,14 @@ import { testimonials } from '@/lib/data/testimonials'
 import { Section } from './section'
 import { Reveal } from './reveal'
 
+// Scattered, hand-set-down treatment instead of three identical boxes —
+// the middle quote sits raised and forward, the outer two tilt slightly.
+const cardTreatment = [
+  'lg:mt-6 lg:-rotate-2',
+  'lg:z-10 lg:shadow-soft-lg',
+  'lg:mt-8 lg:rotate-2',
+]
+
 export function Testimonials() {
   return (
     <Section id="testimonials" labelledBy="testimonials-heading">
@@ -15,10 +23,12 @@ export function Testimonials() {
         </h2>
       </Reveal>
 
-      <div className="mt-10 grid gap-6 lg:grid-cols-3">
+      <div className="mt-14 grid gap-6 lg:grid-cols-3 lg:gap-8">
         {testimonials.map((t, i) => (
           <Reveal key={t.name} delay={i * 80}>
-            <figure className="card-hover-lift flex h-full flex-col rounded-lg border border-border-soft bg-cream p-6 shadow-soft">
+            <figure
+              className={`card-hover-lift flex h-full flex-col rounded-lg border border-border-soft bg-cream p-6 shadow-soft transition-transform duration-300 ${cardTreatment[i] ?? ''}`}
+            >
               <div className="flex gap-1" aria-label="Оценка пет от пет звезди">
                 {Array.from({ length: 5 }).map((_, starIndex) => (
                   <Star

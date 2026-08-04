@@ -148,7 +148,7 @@ export function ContactModal({
             <button
               type="button"
               onClick={requestClose}
-              className="mt-6 inline-flex min-h-11 items-center justify-center rounded-md border border-border-soft bg-transparent px-6 py-3 font-display text-base font-semibold text-charcoal"
+              className="mt-6 inline-flex min-h-11 items-center justify-center rounded-md border border-border-soft bg-transparent px-6 py-3 font-sans text-base font-semibold text-charcoal"
             >
               Затвори
             </button>
@@ -224,7 +224,7 @@ export function ContactModal({
 
             <button
               type="submit"
-              className="mt-6 inline-flex min-h-11 w-full items-center justify-center rounded-md border border-border-soft bg-salmon px-6 py-3 font-display text-base font-semibold text-charcoal shadow-soft transition-all duration-200 ease-[cubic-bezier(0.34,1.56,0.64,1)] hover:-translate-y-0.5 hover:scale-[1.02] hover:bg-salmon-hover hover:shadow-soft-lg"
+              className="mt-6 inline-flex min-h-11 w-full items-center justify-center rounded-md border border-border-soft bg-salmon px-6 py-3 font-sans text-base font-semibold text-charcoal shadow-soft transition-all duration-200 ease-[cubic-bezier(0.34,1.56,0.64,1)] hover:-translate-y-0.5 hover:scale-[1.02] hover:bg-salmon-hover hover:shadow-soft-lg"
             >
               Поръчай сега
             </button>
@@ -267,7 +267,7 @@ function Field({
 }) {
   return (
     <label className="block">
-      <span className="mb-1.5 block font-display text-sm font-semibold text-charcoal">
+      <span className="mb-1.5 block font-sans text-sm font-semibold text-charcoal">
         {label}
       </span>
       {children}

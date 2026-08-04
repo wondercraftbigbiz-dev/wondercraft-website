@@ -42,31 +42,43 @@ export function Assembly() {
         </p>
       </Reveal>
 
-      <ol className="mt-10 grid gap-6 md:grid-cols-3">
+      <ol className="relative mt-14 grid gap-x-6 gap-y-12 md:grid-cols-3 md:gap-y-0">
+        {/* Connecting perforation line threading the three steps together —
+            replaces the three boxed, identical cards with a single path. */}
+        <div
+          className="perforation absolute inset-x-0 top-9 hidden h-px md:block"
+          aria-hidden="true"
+        />
+
         {steps.map((step, i) => (
-          <Reveal key={step.number} as="li" delay={i * 100}>
-            <div className="card-hover-lift h-full rounded-lg border border-border-soft bg-cream shadow-soft">
-              <div className="aspect-[4/3] overflow-hidden rounded-t-lg border-b border-border-soft">
-                <Image
-                  src={step.image}
-                  alt={step.alt}
-                  width={480}
-                  height={360}
-                  className="h-full w-full object-cover"
-                />
-              </div>
-              <div className="p-6">
-                <span className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-border-soft bg-salmon font-display text-base font-semibold text-charcoal">
-                  {step.number}
-                </span>
-                <h3 className="mt-4 font-display text-xl font-semibold text-charcoal">
-                  {step.title}
-                </h3>
-                <p className="mt-2 text-base leading-relaxed text-charcoal-soft">
-                  {step.text}
-                </p>
-              </div>
+          <Reveal
+            key={step.number}
+            as="li"
+            delay={i * 100}
+            className={i === 1 ? 'md:mt-10' : undefined}
+          >
+            <span className="relative z-10 inline-flex h-[72px] w-[72px] items-center justify-center rounded-full border-4 border-cream bg-salmon shadow-soft-lg">
+              <span className="font-display text-2xl font-bold text-charcoal">
+                {step.number}
+              </span>
+            </span>
+
+            <div className="mt-5 overflow-hidden rounded-xl border border-border-soft shadow-soft">
+              <Image
+                src={step.image}
+                alt={step.alt}
+                width={480}
+                height={360}
+                className="aspect-[4/3] h-full w-full object-cover"
+              />
             </div>
+
+            <h3 className="mt-5 font-display text-xl font-semibold text-charcoal">
+              {step.title}
+            </h3>
+            <p className="mt-2 max-w-sm text-base leading-relaxed text-charcoal-soft">
+              {step.text}
+            </p>
           </Reveal>
         ))}
       </ol>

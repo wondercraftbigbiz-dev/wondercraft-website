@@ -20,7 +20,7 @@
 
   /* Fonts */
   --font-sans: var(--font-inter), 'Inter', system-ui, sans-serif;
-  --font-display: var(--font-onest), 'Onest', system-ui, sans-serif;
+  --font-display: var(--font-playfair), 'Playfair Display', Georgia, serif;
 
   /* Radius */
   --radius-sm: 8px;
@@ -53,6 +53,12 @@
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
     line-height: 1.65;
+    /* Paper grain: fractal noise with its color/alpha baked in via
+       feColorMatrix, so it composites as a faint warm speckle straight off
+       the background-image — no overlay element, no blend-mode/stacking
+       concerns. */
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch' result='noise'/%3E%3CfeColorMatrix in='noise' type='matrix' values='0 0 0 0 0.13 0 0 0 0 0.11 0 0 0 0 0.09 0 0 0 0.05 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    background-repeat: repeat;
   }
 
   /* Visible focus ring: salmon, 2px, offset 3px so it clears pastel fills */
@@ -89,6 +95,29 @@
   /* Slow, gentle bob loop for small icon accents (hero badge, guarantee icon). */
   .float-loop {
     animation: float-bob 3s ease-in-out infinite;
+  }
+
+  /* Stamp-perforation divider — a row of dots referencing the die-cut edge
+     of a cardboard sheet. Used sparingly, in place of a plain border, at
+     the one or two section transitions that should feel like a deliberate
+     beat rather than another flat line. */
+  .perforation {
+    background-image: radial-gradient(
+      circle,
+      var(--color-border-soft-strong) 1.5px,
+      transparent 1.5px
+    );
+    background-size: 10px 100%;
+    background-repeat: repeat-x;
+  }
+  .perforation-light {
+    background-image: radial-gradient(
+      circle,
+      color-mix(in srgb, var(--color-cream) 40%, transparent) 1.5px,
+      transparent 1.5px
+    );
+    background-size: 10px 100%;
+    background-repeat: repeat-x;
   }
 
   /* Nav link underline-grow */
@@ -136,6 +165,26 @@
 .reveal.is-visible {
   opacity: 1;
   transform: translateY(0) scale(1);
+}
+
+/* Signature "unfold" entrance — a flap dropping open from a hinge at its
+   top edge, echoing the cardboard-panel-fold product story. Reserved for
+   the handful of high-stakes moments (hero, section leads); repeated
+   lower-stakes content keeps the plain .reveal fade-up above. */
+.reveal-unfold {
+  opacity: 0;
+  transform: perspective(1000px) rotateX(-14deg) translateY(10px);
+  transform-origin: top center;
+  transition:
+    opacity 560ms cubic-bezier(0.16, 1, 0.3, 1),
+    transform 560ms cubic-bezier(0.16, 1, 0.3, 1);
+  transition-delay: var(--reveal-delay, 0ms);
+  will-change: opacity, transform;
+}
+
+.reveal-unfold.is-visible {
+  opacity: 1;
+  transform: perspective(1000px) rotateX(0deg) translateY(0);
 }
 
 /* Hero media parallax — pure CSS scroll-driven animation, progressively
@@ -198,7 +247,8 @@
     scroll-behavior: auto;
   }
 
-  .reveal {
+  .reveal,
+  .reveal-unfold {
     opacity: 1;
     transform: none;
     transition: none;
