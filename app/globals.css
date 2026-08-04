@@ -2,17 +2,20 @@
 
 @theme inline {
   /* Brand palette */
-  --color-cream: #faf5ee;
-  --color-kraft: #ebdcc9;
+  --color-cream: #fdf9f4;
+  --color-kraft: #f2e3cd;
   --color-charcoal: #222222;
   --color-charcoal-soft: #5a5450;
   --color-sage: #d4f0e7;
-  --color-coral: #fba196;
-  --color-salmon: #fba196;
-  --color-salmon-hover: #f98b7e;
+  --color-coral: #ffc4bb;
+  --color-salmon: #ffc4bb;
+  --color-salmon-deep: #fba196;
+  --color-salmon-hover: #f5a89c;
+  --color-border-soft: #e4d9c9;
+  --color-border-soft-strong: #d8c9b3;
 
   /* Semantic tokens */
-  --color-background: #faf5ee;
+  --color-background: #fdf9f4;
   --color-foreground: #222222;
 
   /* Fonts */
@@ -20,8 +23,18 @@
   --font-display: var(--font-onest), 'Onest', system-ui, sans-serif;
 
   /* Radius */
-  --radius-card: 4px;
-  --radius-button: 8px;
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --radius-xl: 28px;
+
+  /* Soft shadows — depth from light, not hard outlines */
+  --shadow-soft:
+    0 2px 8px -2px color-mix(in srgb, var(--color-charcoal) 10%, transparent),
+    0 8px 24px -8px color-mix(in srgb, var(--color-charcoal) 8%, transparent);
+  --shadow-soft-lg:
+    0 4px 16px -4px color-mix(in srgb, var(--color-charcoal) 12%, transparent),
+    0 16px 40px -12px color-mix(in srgb, var(--color-charcoal) 10%, transparent);
 }
 
 :root {
@@ -42,37 +55,142 @@
     line-height: 1.65;
   }
 
-  /* Visible focus ring: salmon, 2px, offset 2px */
+  /* Visible focus ring: salmon, 2px, offset 3px so it clears pastel fills */
   :focus-visible {
-    outline: 2px solid var(--color-salmon);
-    outline-offset: 2px;
+    outline: 2px solid var(--color-salmon-deep);
+    outline-offset: 3px;
   }
 }
 
 @layer utilities {
-  /* Corrugation: repeating 4px vertical lines in kraft at 8% opacity */
+  /* Corrugation: subtle repeating kraft lines, softened for a paper-texture feel */
   .corrugation {
     background-image: repeating-linear-gradient(
       to right,
-      color-mix(in srgb, var(--color-kraft) 55%, transparent) 0px,
-      color-mix(in srgb, var(--color-kraft) 55%, transparent) 1px,
+      color-mix(in srgb, var(--color-kraft) 35%, transparent) 0px,
+      color-mix(in srgb, var(--color-kraft) 35%, transparent) 1px,
       transparent 1px,
-      transparent 4px
+      transparent 5px
     );
+  }
+
+  /* Soft hover lift used on cards — CSS-only, no JS, respected by the
+     prefers-reduced-motion clamp below via transition-duration. */
+  .card-hover-lift {
+    transition:
+      transform 260ms cubic-bezier(0.34, 1.56, 0.64, 1),
+      box-shadow 260ms ease-out;
+  }
+  .card-hover-lift:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-soft-lg);
+  }
+
+  /* Slow, gentle bob loop for small icon accents (hero badge, guarantee icon). */
+  .float-loop {
+    animation: float-bob 3s ease-in-out infinite;
+  }
+
+  /* Nav link underline-grow */
+  .link-underline {
+    position: relative;
+  }
+  .link-underline::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 100%;
+    bottom: -2px;
+    height: 2px;
+    border-radius: 999px;
+    background: var(--color-salmon-deep);
+    transition: right 200ms ease-out;
+  }
+  .link-underline:hover::after,
+  .link-underline:focus-visible::after {
+    right: 0;
+  }
+}
+
+@keyframes float-bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-4px);
   }
 }
 
 /* Reveal-on-scroll animation */
 .reveal {
   opacity: 0;
-  transform: translateY(16px);
-  transition: opacity 240ms ease-out, transform 240ms ease-out;
+  transform: translateY(20px) scale(0.98);
+  transition:
+    opacity 420ms cubic-bezier(0.16, 1, 0.3, 1),
+    transform 420ms cubic-bezier(0.16, 1, 0.3, 1);
+  transition-delay: var(--reveal-delay, 0ms);
   will-change: opacity, transform;
 }
 
 .reveal.is-visible {
   opacity: 1;
-  transform: translateY(0);
+  transform: translateY(0) scale(1);
+}
+
+/* Hero media parallax — pure CSS scroll-driven animation, progressively
+   enhanced: unsupported browsers simply render the frame static. */
+@media (prefers-reduced-motion: no-preference) {
+  @supports (animation-timeline: view()) {
+    .hero-parallax {
+      animation: hero-parallax linear both;
+      animation-timeline: view();
+      animation-range: entry 0% cover 60%;
+    }
+  }
+}
+
+@keyframes hero-parallax {
+  from {
+    transform: translateY(28px) scale(0.98);
+  }
+  to {
+    transform: translateY(-28px) scale(1);
+  }
+}
+
+/* FAQ answer expand/collapse via grid-rows trick — pure CSS, no JS height calc. */
+.faq-panel {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 280ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.faq-panel.is-open {
+  grid-template-rows: 1fr;
+}
+.faq-panel > div {
+  overflow: hidden;
+  min-height: 0;
+}
+
+/* Contact modal enter/exit */
+.modal-backdrop {
+  opacity: 0;
+  transition: opacity 200ms ease-out;
+}
+.modal-backdrop.is-open {
+  opacity: 1;
+}
+.modal-sheet {
+  opacity: 0;
+  transform: translateY(16px) scale(0.98);
+  transition:
+    opacity 220ms cubic-bezier(0.34, 1.56, 0.64, 1),
+    transform 220ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.modal-sheet.is-open {
+  opacity: 1;
+  transform: translateY(0) scale(1);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -84,6 +202,10 @@
     opacity: 1;
     transform: none;
     transition: none;
+  }
+
+  .float-loop {
+    animation: none;
   }
 
   *,

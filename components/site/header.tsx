@@ -2,13 +2,11 @@
 
 import Image from 'next/image'
 import { ShoppingBag } from 'lucide-react'
-import { useContactModal } from './modal-context'
+import { CtaButton } from './cta-button'
 
 export function Header() {
-  const { open } = useContactModal()
-
   return (
-    <header className="sticky top-0 z-40 border-b-2 border-charcoal bg-cream/95 backdrop-blur-sm">
+    <header className="sticky top-0 z-40 border-b border-border-soft bg-cream/95 backdrop-blur-sm">
       <div className="mx-auto flex h-16 w-full max-w-[1120px] items-center justify-between px-5">
         <a
           href="#hero"
@@ -29,27 +27,35 @@ export function Header() {
           aria-label="Основна навигация"
           className="hidden items-center gap-7 md:flex"
         >
-          <a href="#pricing" className="text-sm font-medium text-charcoal hover:text-salmon">
+          <a
+            href="#pricing"
+            className="link-underline text-sm font-medium text-charcoal hover:text-salmon-deep"
+          >
             Цени
           </a>
-          <a href="#assembly" className="text-sm font-medium text-charcoal hover:text-salmon">
+          <a
+            href="#assembly"
+            className="link-underline text-sm font-medium text-charcoal hover:text-salmon-deep"
+          >
             Сглобяване
           </a>
-          <a href="#faq" className="text-sm font-medium text-charcoal hover:text-salmon">
+          <a
+            href="#faq"
+            className="link-underline text-sm font-medium text-charcoal hover:text-salmon-deep"
+          >
             Въпроси
           </a>
         </nav>
 
-        <button
-          type="button"
-          onClick={() => open('standard')}
-          className="inline-flex min-h-11 items-center justify-center gap-2 rounded-[8px] border-2 border-charcoal bg-salmon px-4 py-2 font-display text-base font-semibold text-charcoal transition-all duration-150 ease-out hover:bg-salmon-hover hover:scale-[1.02]"
+        <CtaButton
+          model="standard"
+          className="min-h-11 px-4 py-2 text-base"
         >
           <ShoppingBag className="h-5 w-5" aria-hidden="true" />
           {/* Full label on wider screens, short label on very small screens */}
           <span className="hidden min-[400px]:inline">Поръчай сега</span>
           <span className="min-[400px]:hidden">Поръчай</span>
-        </button>
+        </CtaButton>
       </div>
     </header>
   )

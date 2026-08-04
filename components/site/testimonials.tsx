@@ -16,14 +16,14 @@ export function Testimonials() {
       </Reveal>
 
       <div className="mt-10 grid gap-6 lg:grid-cols-3">
-        {testimonials.map((t) => (
-          <Reveal key={t.name}>
-            <figure className="flex h-full flex-col rounded-[4px] border-2 border-charcoal bg-cream p-6">
+        {testimonials.map((t, i) => (
+          <Reveal key={t.name} delay={i * 80}>
+            <figure className="card-hover-lift flex h-full flex-col rounded-lg border border-border-soft bg-cream p-6 shadow-soft">
               <div className="flex gap-1" aria-label="Оценка пет от пет звезди">
-                {Array.from({ length: 5 }).map((_, i) => (
+                {Array.from({ length: 5 }).map((_, starIndex) => (
                   <Star
-                    key={i}
-                    className="h-5 w-5 fill-salmon text-salmon"
+                    key={starIndex}
+                    className="h-5 w-5 fill-salmon-deep text-salmon-deep"
                     aria-hidden="true"
                   />
                 ))}

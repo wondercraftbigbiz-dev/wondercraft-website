@@ -8,10 +8,13 @@ export function Reveal({
   children,
   className,
   as: Tag = 'div',
+  delay = 0,
 }: {
   children: React.ReactNode
   className?: string
   as?: React.ElementType
+  /** Stagger delay in ms, applied via the --reveal-delay CSS variable. */
+  delay?: number
 }) {
   const ref = useRef<HTMLElement | null>(null)
   const [visible, setVisible] = useState(false)
@@ -37,7 +40,11 @@ export function Reveal({
   }, [])
 
   return (
-    <Tag ref={ref} className={cn('reveal', visible && 'is-visible', className)}>
+    <Tag
+      ref={ref}
+      style={delay ? ({ '--reveal-delay': `${delay}ms` } as React.CSSProperties) : undefined}
+      className={cn('reveal', visible && 'is-visible', className)}
+    >
       {children}
     </Tag>
   )

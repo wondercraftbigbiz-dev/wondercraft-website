@@ -12,8 +12,11 @@ export function Hero() {
     >
       <div className="mx-auto grid w-full max-w-[1120px] items-center gap-10 lg:grid-cols-2 lg:gap-14">
         <Reveal className="order-2 lg:order-1">
-          <span className="inline-flex items-center gap-2 rounded-[4px] border-2 border-charcoal bg-sage px-3 py-1.5 text-sm font-semibold text-charcoal">
-            <Leaf className="h-4 w-4 text-salmon" aria-hidden="true" />
+          <span className="inline-flex items-center gap-2 rounded-full border border-border-soft bg-sage px-3 py-1.5 text-sm font-semibold text-charcoal">
+            <Leaf
+              className="float-loop h-4 w-4 text-salmon-deep"
+              aria-hidden="true"
+            />
             100% рециклиран картон
           </span>
 
@@ -44,8 +47,8 @@ export function Hero() {
           </div>
         </Reveal>
 
-        <Reveal className="order-1 lg:order-2">
-          <div className="overflow-hidden rounded-[4px] border-2 border-charcoal">
+        <Reveal className="order-1 lg:order-2" delay={120}>
+          <div className="hero-parallax overflow-hidden rounded-xl border border-border-soft shadow-soft-lg">
             <video
               autoPlay
               muted

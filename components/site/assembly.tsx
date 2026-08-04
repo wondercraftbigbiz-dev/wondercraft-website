@@ -43,10 +43,10 @@ export function Assembly() {
       </Reveal>
 
       <ol className="mt-10 grid gap-6 md:grid-cols-3">
-        {steps.map((step) => (
-          <Reveal key={step.number} as="li">
-            <div className="h-full rounded-[4px] border-2 border-charcoal bg-cream">
-              <div className="aspect-[4/3] overflow-hidden rounded-t-[2px] border-b-2 border-charcoal">
+        {steps.map((step, i) => (
+          <Reveal key={step.number} as="li" delay={i * 100}>
+            <div className="card-hover-lift h-full rounded-lg border border-border-soft bg-cream shadow-soft">
+              <div className="aspect-[4/3] overflow-hidden rounded-t-lg border-b border-border-soft">
                 <Image
                   src={step.image}
                   alt={step.alt}
@@ -56,7 +56,7 @@ export function Assembly() {
                 />
               </div>
               <div className="p-6">
-                <span className="inline-flex h-9 w-9 items-center justify-center rounded-[4px] border-2 border-charcoal bg-salmon font-display text-base font-semibold text-charcoal">
+                <span className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-border-soft bg-salmon font-display text-base font-semibold text-charcoal">
                   {step.number}
                 </span>
                 <h3 className="mt-4 font-display text-xl font-semibold text-charcoal">

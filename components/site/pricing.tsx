@@ -26,9 +26,13 @@ export function Pricing() {
         </Reveal>
 
         <div className="mt-10 grid gap-6 lg:grid-cols-2">
-          {plans.map((plan) => (
-            <Reveal key={plan.id}>
-              <div className="flex h-full flex-col overflow-hidden rounded-[4px] border-2 border-charcoal bg-cream">
+          {plans.map((plan, i) => (
+            <Reveal key={plan.id} delay={i * 80}>
+              <div
+                className={`card-hover-lift flex h-full flex-col overflow-hidden rounded-lg border border-border-soft bg-cream ${
+                  plan.featured ? 'shadow-soft-lg' : 'shadow-soft'
+                }`}
+              >
                 {/* Corrugated top edge — the signature cardboard cross-section */}
                 <div className="corrugation h-3 w-full bg-kraft" aria-hidden="true" />
 
@@ -43,13 +47,13 @@ export function Pricing() {
                       </p>
                     </div>
                     {plan.featured && (
-                      <span className="shrink-0 rounded-[4px] border-2 border-charcoal bg-salmon px-3 py-1 font-display text-sm font-semibold text-charcoal">
+                      <span className="shrink-0 rounded-full border border-border-soft-strong bg-salmon px-3 py-1 font-display text-sm font-semibold text-charcoal">
                         Любим избор
                       </span>
                     )}
                   </div>
 
-                  <div className="mt-5 aspect-[4/3] overflow-hidden rounded-[4px] border-2 border-charcoal">
+                  <div className="mt-5 aspect-[4/3] overflow-hidden rounded-lg border border-border-soft">
                     <Image
                       src={plan.image}
                       alt={plan.imageAlt}
@@ -72,7 +76,7 @@ export function Pricing() {
                     {plan.features.map((feature) => (
                       <li key={feature} className="flex items-start gap-3">
                         <Check
-                          className="mt-0.5 h-5 w-5 shrink-0 text-salmon"
+                          className="mt-0.5 h-5 w-5 shrink-0 text-salmon-deep"
                           aria-hidden="true"
                         />
                         <span className="text-base leading-relaxed text-charcoal">

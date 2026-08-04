@@ -7,7 +7,7 @@ export function FinalCta() {
     <section
       id="final-cta"
       aria-labelledby="final-cta-heading"
-      className="corrugation border-y-2 border-charcoal bg-kraft px-5 py-16 md:py-24"
+      className="corrugation border-y border-border-soft bg-kraft px-5 py-16 md:py-24"
     >
       <div className="mx-auto w-full max-w-[1120px] text-center">
         <Reveal>
