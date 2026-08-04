@@ -1,8 +1,8 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Check, X } from 'lucide-react'
 import { plans, type Plan } from '@/lib/data/pricing'
+import { CheckIcon, CloseIcon } from './icons'
 
 type Errors = Partial<Record<'name' | 'phone' | 'city' | 'model', string>>
 
@@ -132,14 +132,14 @@ export function ContactModal({
             onClick={requestClose}
             className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-border-soft bg-cream text-charcoal"
           >
-            <X className="h-5 w-5" aria-hidden="true" />
+            <CloseIcon className="h-5 w-5" aria-hidden="true" />
           </button>
         </div>
 
         {submitted ? (
           <div className="px-6 py-10 text-center">
             <span className="mx-auto inline-flex h-14 w-14 items-center justify-center rounded-full border border-border-soft bg-salmon">
-              <Check className="h-7 w-7 text-charcoal" aria-hidden="true" />
+              <CheckIcon className="h-7 w-7 text-charcoal" aria-hidden="true" />
             </span>
             <p className="mt-5 text-pretty text-base leading-relaxed text-charcoal">
               Получихме заявката ви. Ще се свържем с вас възможно най-скоро, за да
@@ -224,7 +224,7 @@ export function ContactModal({
 
             <button
               type="submit"
-              className="mt-6 inline-flex min-h-11 w-full items-center justify-center rounded-md border border-border-soft bg-salmon px-6 py-3 font-sans text-base font-semibold text-charcoal shadow-soft transition-all duration-200 ease-[cubic-bezier(0.34,1.56,0.64,1)] hover:-translate-y-0.5 hover:scale-[1.02] hover:bg-salmon-hover hover:shadow-soft-lg"
+              className="mt-6 inline-flex min-h-11 w-full items-center justify-center rounded-md border border-border-soft bg-salmon px-6 py-3 font-sans text-base font-semibold text-charcoal shadow-soft transition-all duration-200 ease-[cubic-bezier(0.34,1.56,0.64,1)] hover:-translate-y-0.5 hover:scale-[1.02] hover:bg-salmon-hover hover:shadow-soft-lg active:scale-[0.96] active:duration-100"
             >
               Поръчай сега
             </button>

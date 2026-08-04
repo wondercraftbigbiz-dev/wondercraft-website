@@ -1,8 +1,8 @@
 'use client'
 
 import { useId, useState } from 'react'
-import { Plus } from 'lucide-react'
 import { faqItems } from '@/lib/data/faq'
+import { PlusMinusIcon } from './icons'
 import { Section } from './section'
 import { Reveal } from './reveal'
 
@@ -42,11 +42,9 @@ export function Faq() {
                     className="flex w-full items-center justify-between gap-4 px-5 py-4 text-left font-display text-lg font-semibold text-charcoal"
                   >
                     {item.question}
-                    <Plus
-                      className={`h-5 w-5 shrink-0 transition-transform duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${
-                        isOpen ? 'rotate-45 text-salmon-deep' : 'text-charcoal'
-                      }`}
-                      aria-hidden="true"
+                    <PlusMinusIcon
+                      isOpen={isOpen}
+                      className={`h-5 w-5 ${isOpen ? 'text-salmon-deep' : 'text-charcoal'}`}
                     />
                   </button>
                 </h3>

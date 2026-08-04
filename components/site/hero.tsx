@@ -1,7 +1,7 @@
 import Image from 'next/image'
-import { Leaf } from 'lucide-react'
 import { startingPrice } from '@/lib/data/pricing'
 import { CtaButton } from './cta-button'
+import { LeafIcon } from './icons'
 import { Reveal } from './reveal'
 
 export function Hero() {
@@ -14,7 +14,7 @@ export function Hero() {
       <div className="mx-auto grid w-full max-w-[1120px] items-center gap-14 lg:grid-cols-[1.05fr_0.95fr] lg:gap-16">
         <Reveal className="order-2 lg:order-1" variant="unfold">
           <span className="inline-flex items-center gap-2 rounded-full border border-border-soft bg-sage px-3 py-1.5 text-sm font-semibold text-charcoal">
-            <Leaf
+            <LeafIcon
               className="float-loop h-4 w-4 text-salmon-deep"
               aria-hidden="true"
             />

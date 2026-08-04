@@ -1,5 +1,5 @@
-import { Star } from 'lucide-react'
 import { testimonials } from '@/lib/data/testimonials'
+import { StarIcon } from './icons'
 import { Section } from './section'
 import { Reveal } from './reveal'
 
@@ -31,7 +31,7 @@ export function Testimonials() {
             >
               <div className="flex gap-1" aria-label="Оценка пет от пет звезди">
                 {Array.from({ length: 5 }).map((_, starIndex) => (
-                  <Star
+                  <StarIcon
                     key={starIndex}
                     className="h-5 w-5 fill-salmon-deep text-salmon-deep"
                     aria-hidden="true"

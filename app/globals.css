@@ -120,6 +120,16 @@
     background-repeat: repeat-x;
   }
 
+  /* Pointer-tracked tilt, set via --tilt-x/--tilt-y from tilt-card.tsx.
+     Rotation itself is fenced behind (hover: hover) and (pointer: fine)
+     below, so touch devices see no visual effect even if a stray pointer
+     event ever fired. */
+  .tilt-card {
+    --tilt-x: 0deg;
+    --tilt-y: 0deg;
+    transition: transform 200ms ease-out;
+  }
+
   /* Nav link underline-grow */
   .link-underline {
     position: relative;
@@ -138,6 +148,12 @@
   .link-underline:hover::after,
   .link-underline:focus-visible::after {
     right: 0;
+  }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .tilt-card {
+    transform: perspective(900px) rotateX(var(--tilt-x)) rotateY(var(--tilt-y));
   }
 }
 
@@ -256,6 +272,11 @@
 
   .float-loop {
     animation: none;
+  }
+
+  .tilt-card {
+    transform: none !important;
+    transition: none !important;
   }
 
   *,

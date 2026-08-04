@@ -1,20 +1,20 @@
-import { Clock, Recycle, Package } from 'lucide-react'
+import { ClockIcon, PackageIcon, RecycleIcon } from './icons'
 import { Section } from './section'
 import { Reveal } from './reveal'
 
 const benefits = [
   {
-    icon: Clock,
+    icon: ClockIcon,
     title: 'Готова за 15 минути',
     text: 'Без инструменти, без лепило. Панелите се прегъват и захващат — и къщичката е готова за игра.',
   },
   {
-    icon: Recycle,
+    icon: RecycleIcon,
     title: '100% рециклиран картон',
     text: 'Издръжлив, лек и напълно рециклируем. Безопасен избор за детето и за планетата.',
   },
   {
-    icon: Package,
+    icon: PackageIcon,
     title: 'Прибира се плоско',
     text: 'Когато не се използва, се разглобява и заема минимално място в гардероба или под леглото.',
   },
