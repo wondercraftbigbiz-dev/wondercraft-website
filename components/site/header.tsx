@@ -1,8 +1,8 @@
 'use client'
 
 import Image from 'next/image'
-import { ShoppingBag } from 'lucide-react'
 import { CtaButton } from './cta-button'
+import { BagIcon } from './icons'
 
 export function Header() {
   return (
@@ -51,7 +51,7 @@ export function Header() {
           model="standard"
           className="min-h-11 px-4 py-2 text-base"
         >
-          <ShoppingBag className="h-5 w-5" aria-hidden="true" />
+          <BagIcon className="h-5 w-5" aria-hidden="true" />
           {/* Full label on wider screens, short label on very small screens */}
           <span className="hidden min-[400px]:inline">Поръчай сега</span>
           <span className="min-[400px]:hidden">Поръчай</span>

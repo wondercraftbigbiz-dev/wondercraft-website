@@ -1,20 +1,24 @@
 import { Analytics } from '@vercel/analytics/next'
 import { SpeedInsights } from '@vercel/speed-insights/next'
 import type { Metadata, Viewport } from 'next'
-import { Inter, Onest } from 'next/font/google'
+import { Inter, Playfair_Display } from 'next/font/google'
 import './globals.css'
 
 const inter = Inter({
   subsets: ['latin', 'cyrillic'],
-  weight: ['400', '500'],
+  weight: ['400', '500', '600'],
   variable: '--font-inter',
   display: 'swap',
 })
 
-const onest = Onest({
+// Warm editorial serif for headlines — replaces the generic geometric-sans
+// default to give the brand a distinct, boutique voice instead of a
+// templated tech-startup one.
+const playfair = Playfair_Display({
   subsets: ['latin', 'cyrillic'],
-  weight: ['600', '700'],
-  variable: '--font-onest',
+  weight: ['600', '700', '800'],
+  style: ['normal', 'italic'],
+  variable: '--font-playfair',
   display: 'swap',
 })
 
@@ -55,7 +59,7 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="bg" className={`${inter.variable} ${onest.variable}`} suppressHydrationWarning>
+    <html lang="bg" className={`${inter.variable} ${playfair.variable}`} suppressHydrationWarning>
       <body className="antialiased" suppressHydrationWarning>
         {children}
         {process.env.NODE_ENV === 'production' && (
