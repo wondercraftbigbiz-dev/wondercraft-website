@@ -39,9 +39,9 @@ export const metadata: Metadata = {
     locale: 'bg_BG',
     images: [
       {
-        url: '/images/house-hero.png',
-        width: 1200,
-        height: 630,
+        url: '/images/assembly-2.png',
+        width: 1024,
+        height: 1024,
         alt: 'Картонена къщичка за игра Wondercraft',
       },
     ],
