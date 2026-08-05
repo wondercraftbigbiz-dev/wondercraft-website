@@ -1,6 +1,9 @@
 import Image from 'next/image'
+import { DisplayHeading } from './display-heading'
+import { DoodleArrow } from './doodle'
 import { Section } from './section'
 import { Reveal } from './reveal'
+import { ScriptLine } from './script-line'
 
 const steps = [
   {
@@ -29,28 +32,37 @@ const steps = [
 export function Assembly() {
   return (
     <Section id="assembly" labelledBy="assembly-heading">
-      <Reveal>
-        <h2
+      <Reveal variant="plain">
+        <DisplayHeading
           id="assembly-heading"
-          className="max-w-2xl text-balance font-display text-[28px] font-semibold leading-[1.15] tracking-[-0.015em] text-charcoal md:text-4xl"
-        >
-          Сглобяването е част от забавата
-        </h2>
-        <p className="mt-3 max-w-xl text-base leading-relaxed text-charcoal-soft">
+          lead="Сглобяването е"
+          accent="част от забавата"
+          className="max-w-[16ch]"
+        />
+        <ScriptLine className="mt-4">Петнайсет минути, край.</ScriptLine>
+        <p className="mt-4 max-w-xl text-base leading-relaxed text-charcoal-soft">
           Три прости стъпки и къщичката е готова. Видео ръководството премахва
           всякакво притеснение.
         </p>
       </Reveal>
 
-      <ol className="relative mt-14 grid gap-x-6 gap-y-12 md:grid-cols-3 md:gap-y-0">
-        {/* Connecting perforation line threading the three steps together —
-            replaces the three boxed, identical cards with a single path. */}
-        <div
-          className="perforation absolute inset-x-0 top-9 hidden h-px md:block"
-          aria-hidden="true"
+      <Reveal variant="plain" className="relative mt-14">
+        {/* Crayon arrows hopping step to step, drawn on as the row enters.
+            Two on the whole page — used sparingly this charms, used on every
+            section it becomes noise. They sit outside the <ol>, since only
+            <li> is valid there. */}
+        <DoodleArrow
+          delay={260}
+          className="absolute left-[27%] top-2 hidden w-16 text-salmon-deep md:block"
+        />
+        <DoodleArrow
+          flip
+          delay={520}
+          className="absolute left-[60%] top-2 hidden w-16 text-salmon-deep md:block"
         />
 
-        {steps.map((step, i) => (
+        <ol className="grid gap-x-6 gap-y-12 md:grid-cols-3 md:gap-y-0">
+          {steps.map((step, i) => (
           <Reveal
             key={step.number}
             as="li"
@@ -63,13 +75,20 @@ export function Assembly() {
               </span>
             </span>
 
-            <div className="mt-5 overflow-hidden rounded-xl border border-border-soft shadow-soft">
+            {/* Same stage treatment as the pricing shots, rotating through
+                the accent colours so the three steps do not read as a row of
+                identical tiles. */}
+            <div
+              className={`mt-5 rounded-xl p-3 ${
+                ['bg-sage', 'bg-salmon/50', 'bg-kraft'][i]
+              }`}
+            >
               <Image
                 src={step.image}
                 alt={step.alt}
                 width={480}
                 height={360}
-                className="aspect-[4/3] h-full w-full object-cover"
+                className="aspect-[4/3] h-full w-full rounded-lg object-cover"
               />
             </div>
 
@@ -79,9 +98,10 @@ export function Assembly() {
             <p className="mt-2 max-w-sm text-base leading-relaxed text-charcoal-soft">
               {step.text}
             </p>
-          </Reveal>
-        ))}
-      </ol>
+            </Reveal>
+          ))}
+        </ol>
+      </Reveal>
     </Section>
   )
 }

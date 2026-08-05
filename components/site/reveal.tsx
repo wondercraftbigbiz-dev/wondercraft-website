@@ -16,8 +16,13 @@ export function Reveal({
   as?: React.ElementType
   /** Stagger delay in ms, applied via the --reveal-delay CSS variable. */
   delay?: number
-  /** 'fade' (default) for repeated content; 'unfold' for high-stakes, one-off moments. */
-  variant?: 'fade' | 'unfold'
+  /**
+   * 'fade' (default) for repeated content; 'unfold' for high-stakes, one-off
+   * moments; 'plain' when the wrapper should only publish `.is-visible` and
+   * let descendants (staggered words, popping badges, drawing doodles) carry
+   * the animation themselves.
+   */
+  variant?: 'fade' | 'unfold' | 'plain'
 }) {
   const ref = useRef<HTMLElement | null>(null)
   const [visible, setVisible] = useState(false)
@@ -47,7 +52,8 @@ export function Reveal({
       ref={ref}
       style={delay ? ({ '--reveal-delay': `${delay}ms` } as React.CSSProperties) : undefined}
       className={cn(
-        variant === 'unfold' ? 'reveal-unfold' : 'reveal',
+        variant === 'unfold' && 'reveal-unfold',
+        variant === 'fade' && 'reveal',
         visible && 'is-visible',
         className,
       )}

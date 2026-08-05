@@ -14,13 +14,19 @@
   --color-border-soft: #e4d9c9;
   --color-border-soft-strong: #d8c9b3;
 
+  /* The one ground. Every section sits on this single warm surface —
+     colour arrives via photography and a few accent shapes, never via
+     alternating full-bleed bands. Kraft, deepened toward apricot. */
+  --color-ground: #f8e6ca;
+
   /* Semantic tokens */
-  --color-background: #fdf9f4;
+  --color-background: #f8e6ca;
   --color-foreground: #222222;
 
   /* Fonts */
   --font-sans: var(--font-inter), 'Inter', system-ui, sans-serif;
   --font-display: var(--font-playfair), 'Playfair Display', Georgia, serif;
+  --font-script: var(--font-caveat), 'Caveat', cursive;
 
   /* Radius */
   --radius-sm: 8px;
@@ -43,12 +49,12 @@
 
 @layer base {
   html {
-    background-color: var(--color-cream);
+    background-color: var(--color-ground);
     scroll-behavior: smooth;
   }
 
   body {
-    background-color: var(--color-cream);
+    background-color: var(--color-ground);
     color: var(--color-charcoal);
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
@@ -130,6 +136,67 @@
     transition: transform 200ms ease-out;
   }
 
+  /* Word-by-word headline entrance. The parent <Reveal variant="plain">
+     only toggles .is-visible; the animation lives entirely on the words,
+     so the heading never sits behind a second opacity layer. */
+  .stagger-words > span {
+    display: inline-block;
+    /* Cyrillic descenders (у, р, д, ц) need clearance at leading < 1. */
+    padding-bottom: 0.08em;
+    opacity: 0;
+    transform: translateY(0.5em);
+    transition:
+      opacity 520ms cubic-bezier(0.16, 1, 0.3, 1),
+      transform 520ms cubic-bezier(0.16, 1, 0.3, 1);
+    transition-delay: calc(var(--i, 0) * 70ms);
+    will-change: opacity, transform;
+  }
+  .is-visible .stagger-words > span {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  /* Claim badges springing outward from the hero product. */
+  .badge-pop {
+    opacity: 0;
+    transform: scale(0.6);
+    transition:
+      opacity 400ms ease-out,
+      transform 520ms cubic-bezier(0.34, 1.56, 0.64, 1);
+    transition-delay: calc(var(--i, 0) * 90ms);
+  }
+  .is-visible .badge-pop {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  /* Crayon doodles drawing themselves in. Paths carry pathLength="1", so
+     the dash maths is unit-free and independent of the actual geometry. */
+  .doodle-draw path {
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+  }
+  .is-visible .doodle-draw path {
+    animation: doodle-draw 900ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    animation-delay: var(--doodle-delay, 0ms);
+  }
+  /* The arrowhead lands after the shaft has been drawn. */
+  .is-visible .doodle-draw path:nth-child(2) {
+    animation-duration: 320ms;
+    animation-delay: calc(var(--doodle-delay, 0ms) + 820ms);
+  }
+
+  /* Marquee: the track holds the content twice, so translating it by half
+     its width loops seamlessly. */
+  .marquee-track {
+    display: flex;
+    width: max-content;
+    animation: marquee-slide 34s linear infinite;
+  }
+  .marquee-mask:hover .marquee-track {
+    animation-play-state: paused;
+  }
+
   /* Nav link underline-grow */
   .link-underline {
     position: relative;
@@ -154,6 +221,18 @@
 @media (hover: hover) and (pointer: fine) {
   .tilt-card {
     transform: perspective(900px) rotateX(var(--tilt-x)) rotateY(var(--tilt-y));
+  }
+}
+
+@keyframes marquee-slide {
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@keyframes doodle-draw {
+  to {
+    stroke-dashoffset: 0;
   }
 }
 
@@ -270,7 +349,24 @@
     transition: none;
   }
 
-  .float-loop {
+  .float-loop,
+  .marquee-track {
+    animation: none;
+  }
+
+  /* Land the staged elements in their final state rather than animating
+     them there. The blanket duration clamp below would otherwise leave
+     them technically animated but visually snapping. */
+  .stagger-words > span,
+  .badge-pop {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+
+  .doodle-draw path,
+  .is-visible .doodle-draw path {
+    stroke-dashoffset: 0;
     animation: none;
   }
 

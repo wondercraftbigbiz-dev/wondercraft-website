@@ -11,6 +11,15 @@ import { Faq } from '@/components/site/faq'
 import { FinalCta } from '@/components/site/final-cta'
 import { Footer } from '@/components/site/footer'
 import { BackToTop } from '@/components/site/back-to-top'
+import { Marquee } from '@/components/site/marquee'
+
+const claims = [
+  '100% рециклиран картон',
+  '15 минути сглобяване',
+  'Без лепило и инструменти',
+  'Прибира се плоско',
+  '30 дни право на връщане',
+]
 
 export default function Page() {
   return (
@@ -18,6 +27,8 @@ export default function Page() {
       <Header />
       <main>
         <Hero />
+        {/* Trust strip lives under the hero, never inside it. */}
+        <Marquee items={claims} />
         <Benefits />
         <Pricing />
         <Assembly />

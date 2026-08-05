@@ -1,6 +1,8 @@
+import { DisplayHeading } from './display-heading'
 import { ClockIcon, PackageIcon, RecycleIcon } from './icons'
 import { Section } from './section'
 import { Reveal } from './reveal'
+import { ScriptLine } from './script-line'
 
 const benefits = [
   {
@@ -25,13 +27,14 @@ export function Benefits() {
 
   return (
     <Section id="benefits" labelledBy="benefits-heading">
-      <Reveal>
-        <h2
+      <Reveal variant="plain">
+        <DisplayHeading
           id="benefits-heading"
-          className="max-w-2xl text-balance font-display text-[28px] font-semibold leading-[1.15] tracking-[-0.015em] text-charcoal md:text-4xl"
-        >
-          Направена да улесни живота ви
-        </h2>
+          lead="Направена да улесни"
+          accent="живота ви"
+          className="max-w-[16ch]"
+        />
+        <ScriptLine className="mt-4">Без нито един винт.</ScriptLine>
       </Reveal>
 
       {/* Bento layout: one anchor tile carries more weight than the two
@@ -53,8 +56,11 @@ export function Benefits() {
 
         {rest.map((benefit, i) => (
           <Reveal key={benefit.title} delay={(i + 1) * 80}>
-            <div className="card-hover-lift group h-full rounded-lg border border-border-soft bg-cream p-6 shadow-soft">
-              <span className="inline-flex h-12 w-12 items-center justify-center rounded-md border border-border-soft bg-sage transition-transform duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] group-hover:-translate-y-0.5 group-hover:-rotate-3">
+            {/* No card. Against the sage mass of the lead tile these two read
+                as a column of text separated by a rule, which keeps the bento
+                from becoming six identical boxes on one flat surface. */}
+            <div className="group h-full border-t border-border-soft-strong pt-6">
+              <span className="inline-flex h-12 w-12 items-center justify-center rounded-md border border-border-soft bg-cream transition-transform duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] group-hover:-translate-y-0.5 group-hover:-rotate-3">
                 <benefit.icon
                   className="h-6 w-6 text-charcoal"
                   aria-hidden="true"

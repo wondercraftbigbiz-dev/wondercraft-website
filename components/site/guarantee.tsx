@@ -2,23 +2,24 @@ import { CtaButton } from './cta-button'
 import { ShieldIcon } from './icons'
 import { Reveal } from './reveal'
 
-// The one deliberate high-contrast beat on the page — a full-bleed dark
-// band that breaks the pastel-on-cream rhythm running through every other
-// section, instead of a colored card floating on the same light canvas.
+// The one deliberate high-contrast beat on the page. It used to be a
+// full-bleed band, which fought the single-ground rule now running through
+// every section; contained in a pill it reads as an object sitting on the
+// surface rather than a seam cutting across it.
 export function Guarantee() {
   return (
     <section
       id="guarantee"
       aria-labelledby="guarantee-heading"
-      className="relative bg-charcoal px-5 py-16 md:py-24"
+      className="relative px-5 py-10 md:py-16"
     >
-      <div
-        className="perforation-light absolute inset-x-0 top-0 h-px w-full"
-        aria-hidden="true"
-      />
       <div className="mx-auto w-full max-w-[1120px]">
         <Reveal>
-          <div className="flex flex-col items-start gap-6 md:flex-row md:items-center md:gap-10">
+          <div className="relative flex flex-col items-start gap-6 overflow-hidden rounded-[40px] bg-charcoal px-7 py-10 md:flex-row md:items-center md:gap-10 md:px-12 md:py-12">
+            <div
+              className="perforation-light absolute inset-x-0 top-0 h-px w-full"
+              aria-hidden="true"
+            />
             <span className="inline-flex h-14 w-14 shrink-0 items-center justify-center rounded-lg border border-cream/15 bg-cream/5">
               <ShieldIcon
                 className="float-loop h-7 w-7 text-salmon"

@@ -3,7 +3,7 @@ import Image from 'next/image'
 export function Footer() {
   const year = new Date().getFullYear()
   return (
-    <footer className="border-t border-border-soft bg-cream px-5 py-10">
+    <footer className="border-t border-border-soft bg-ground px-5 py-10">
       <div className="mx-auto flex w-full max-w-[1120px] flex-col gap-6 md:flex-row md:items-center md:justify-between">
         <div>
           <a href="#hero" className="inline-block" aria-label="Wondercraft Начало">

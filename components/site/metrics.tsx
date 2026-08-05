@@ -12,9 +12,11 @@ export function Metrics() {
     <section
       id="metrics"
       aria-labelledby="metrics-heading"
-      className="corrugation border-y border-border-soft bg-sage px-5 py-14 md:py-20"
+      className="px-5 py-10 md:py-14"
     >
-      <div className="mx-auto w-full max-w-[1120px]">
+      {/* Contained rather than full-bleed, so the page keeps one continuous
+          ground and this reads as an object on it. */}
+      <div className="corrugation mx-auto w-full max-w-[1120px] rounded-[40px] bg-sage px-7 py-12 md:px-12">
         <h2 id="metrics-heading" className="sr-only">
           Числа за Wondercraft
         </h2>
