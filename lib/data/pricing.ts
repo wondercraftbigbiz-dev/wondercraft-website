@@ -28,7 +28,7 @@ export const plans: Plan[] = [
       'Безопасни, заоблени ръбове',
     ],
     featured: false,
-    image: '/images/model-standard.png',
+    image: '/images/model-standard.webp',
     imageAlt: 'Стандартна картонена къщичка за игра',
   },
   {
@@ -45,7 +45,7 @@ export const plans: Plan[] = [
       'Видео ръководство за сглобяване',
     ],
     featured: true,
-    image: '/images/model-custom.png',
+    image: '/images/model-custom.webp',
     imageAlt: 'Персонализирана картонена къщичка с име на детето',
   },
 ]
