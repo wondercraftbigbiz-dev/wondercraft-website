@@ -55,12 +55,12 @@ export function Pricing() {
                       )}
                     </div>
 
-                    <div className="mt-5 aspect-[4/3] overflow-hidden rounded-lg border border-border-soft">
+                    <div className="mt-5 aspect-[4/5] overflow-hidden rounded-lg border border-border-soft bg-cream">
                       <Image
                         src={plan.image}
                         alt={plan.imageAlt}
-                        width={640}
-                        height={480}
+                        width={1122}
+                        height={1402}
                         className="h-full w-full object-cover"
                       />
                     </div>
