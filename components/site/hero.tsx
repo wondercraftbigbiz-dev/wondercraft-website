@@ -114,8 +114,8 @@ export function Hero() {
                 runs with `unoptimized: true`, so whatever is referenced here
                 is what ships. 560x420 covers the ~280px slot at 2x. */}
             <Image
-              src="/images/assembly-2-hero.jpg"
-              alt="Ръце сглобяват картонените панели на къщичката"
+              src="/images/hero-colouring.jpg"
+              alt="Дете оцветява картонената къщичка с флумастер"
               width={560}
               height={420}
               sizes="(min-width: 1024px) 280px, 40vw"
