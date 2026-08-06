@@ -6,7 +6,7 @@ import { BagIcon } from './icons'
 
 export function Header() {
   return (
-    <header className="sticky top-0 z-40 border-b border-border-soft bg-cream/95 backdrop-blur-sm">
+    <header className="sticky top-0 z-40 border-b border-border-soft bg-ground/85 backdrop-blur-sm">
       <div className="mx-auto flex h-16 w-full max-w-[1120px] items-center justify-between px-5">
         <a
           href="#hero"

@@ -1,42 +1,79 @@
-import Image from 'next/image'
 import { startingPrice } from '@/lib/data/pricing'
+import { BadgeCircle } from './badge-circle'
 import { CtaButton } from './cta-button'
-import { LeafIcon } from './icons'
+import { DisplayHeading } from './display-heading'
+import { HeroVideo } from './hero-video'
+import { ClockIcon, PackageIcon, RecycleIcon } from './icons'
 import { Reveal } from './reveal'
+import { ScriptLine } from './script-line'
+
+const claims = [
+  { label: '100% рециклиран картон', icon: RecycleIcon },
+  { label: '15 мин. сглобяване', icon: ClockIcon },
+  { label: 'Без инструменти', icon: undefined },
+  { label: 'Прибира се плоско', icon: PackageIcon },
+]
 
 export function Hero() {
   return (
     <section
       id="hero"
       aria-labelledby="hero-heading"
-      className="px-5 pb-20 pt-14 md:pb-28 md:pt-20"
+      className="px-5 pb-16 pt-10 md:pb-20 md:pt-14"
     >
-      <div className="mx-auto grid w-full max-w-[1120px] items-center gap-14 lg:grid-cols-[1.05fr_0.95fr] lg:gap-16">
-        <Reveal className="order-2 lg:order-1" variant="unfold">
-          <span className="inline-flex items-center gap-2 rounded-full border border-border-soft bg-sage px-3 py-1.5 text-sm font-semibold text-charcoal">
-            <LeafIcon
-              className="float-loop h-4 w-4 text-salmon-deep"
-              aria-hidden="true"
-            />
-            100% рециклиран картон
-          </span>
-
-          <h1
+      <div className="mx-auto w-full max-w-[1120px]">
+        <Reveal variant="plain">
+          <DisplayHeading
             id="hero-heading"
-            className="mt-6 text-balance font-display text-[44px] font-bold leading-[0.98] tracking-[-0.02em] text-charcoal sm:text-6xl md:text-7xl lg:text-[84px]"
-          >
-            Къщичка за игра, която{' '}
-            <em className="italic text-salmon-deep">расте</em> с
-            въображението
-          </h1>
+            as="h1"
+            size="hero"
+            lead="Къщичка за игра, която"
+            accent="расте с въображението"
+            className="mx-auto max-w-[15ch] text-center"
+          />
+        </Reveal>
 
-          <p className="mt-6 max-w-xl text-pretty text-base leading-relaxed text-charcoal-soft md:text-[17px]">
+        {/* The media rides up over the tail of the headline. The overlap is
+            what makes the composition read as built rather than stacked —
+            and it is the release valve if the hero ever overruns the fold:
+            deepen it before shrinking the type. */}
+        <Reveal variant="plain" className="relative">
+          <div className="hero-parallax relative z-10 mx-auto mt-[calc(clamp(8px,3vw,44px)*-1)] aspect-[4/5] w-full max-w-[420px] overflow-hidden rounded-xl border border-border-soft bg-kraft shadow-soft-lg lg:h-[min(52svh,520px)] lg:w-auto lg:max-w-none">
+            <HeroVideo />
+          </div>
+
+          {/* Claim badges radiating from the product, on one shared axis at
+              desktop; a plain grid underneath once there is no room to flank. */}
+          <div className="mt-8 grid grid-cols-2 justify-items-center gap-4 sm:grid-cols-4 lg:mt-0">
+            {claims.map((claim, i) => (
+              <BadgeCircle
+                key={claim.label}
+                label={claim.label}
+                icon={claim.icon}
+                index={i}
+                className={
+                  [
+                    'lg:absolute lg:top-[26%] lg:left-0',
+                    'lg:absolute lg:top-[54%] lg:left-[11%]',
+                    'lg:absolute lg:top-[54%] lg:right-[11%]',
+                    'lg:absolute lg:top-[26%] lg:right-0',
+                  ][i]
+                }
+              />
+            ))}
+          </div>
+        </Reveal>
+
+        <Reveal className="mt-8 flex flex-col items-center text-center" delay={80}>
+          <ScriptLine>Направена на ръка в България.</ScriptLine>
+
+          <p className="mt-3 max-w-xl text-pretty text-base leading-relaxed text-charcoal-soft md:text-[17px]">
             Сглобява се за 15 минути без инструменти и се прибира плоско, когато
             не се използва. Изцяло от рециклиран картон — безопасна за детето и
             за планетата.
           </p>
 
-          <div className="mt-7 flex items-baseline gap-2">
+          <div className="mt-6 flex items-baseline gap-2">
             <span className="font-display text-3xl font-bold text-charcoal">
               от {startingPrice.euro}
             </span>
@@ -45,38 +82,8 @@ export function Hero() {
             </span>
           </div>
 
-          <div className="mt-7">
+          <div className="mt-6">
             <CtaButton />
-          </div>
-        </Reveal>
-
-        <Reveal className="relative order-1 lg:order-2" delay={140}>
-          <div className="hero-parallax overflow-hidden rounded-xl border border-border-soft shadow-soft-lg">
-            <video
-              autoPlay
-              muted
-              loop
-              playsInline
-              preload="metadata"
-              poster="/images/house-hero.png"
-              aria-label="Дете рисува върху картонена къщичка за игра Wondercraft"
-              className="aspect-square h-auto w-full object-cover"
-            >
-              <source src="/videos/kid-draws-on-house.mp4" type="video/mp4" />
-            </video>
-          </div>
-
-          {/* Supporting photo, overlapping like a set-down print — breaks
-              the single symmetric media block and tells the "made by hand"
-              part of the story right in the hero. */}
-          <div className="absolute -bottom-8 -left-6 hidden w-[38%] -rotate-6 overflow-hidden rounded-lg border-4 border-cream shadow-soft-lg sm:block lg:-left-10">
-            <Image
-              src="/images/assembly-2.png"
-              alt="Ръце сглобяват картонените панели на къщичката"
-              width={320}
-              height={240}
-              className="aspect-[4/3] h-auto w-full object-cover"
-            />
           </div>
         </Reveal>
       </div>

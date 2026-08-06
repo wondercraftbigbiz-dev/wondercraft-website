@@ -1,8 +1,10 @@
 import Image from 'next/image'
 import { plans } from '@/lib/data/pricing'
 import { CtaButton } from './cta-button'
+import { DisplayHeading } from './display-heading'
 import { CheckIcon } from './icons'
 import { Reveal } from './reveal'
+import { ScriptLine } from './script-line'
 import { TiltCard } from './tilt-card'
 
 export function Pricing() {
@@ -10,17 +12,18 @@ export function Pricing() {
     <section
       id="pricing"
       aria-labelledby="pricing-heading"
-      className="corrugation bg-kraft/40 px-5 py-14 md:py-24"
+      className="px-5 py-14 md:py-24"
     >
       <div className="mx-auto w-full max-w-[1120px]">
-        <Reveal>
-          <h2
+        <Reveal variant="plain">
+          <DisplayHeading
             id="pricing-heading"
-            className="max-w-2xl text-balance font-display text-[28px] font-semibold leading-[1.15] tracking-[-0.015em] text-charcoal md:text-4xl"
-          >
-            Един ясен избор, две цени
-          </h2>
-          <p className="mt-3 max-w-xl text-base leading-relaxed text-charcoal-soft">
+            lead="Един ясен избор,"
+            accent="две цени"
+            className="max-w-[14ch]"
+          />
+          <ScriptLine className="mt-4">Без изненади на касата.</ScriptLine>
+          <p className="mt-4 max-w-xl text-base leading-relaxed text-charcoal-soft">
             Без абонаменти и скрити такси. Изберете модела, който пасва на вашето
             дете.
           </p>
@@ -55,13 +58,22 @@ export function Pricing() {
                       )}
                     </div>
 
-                    <div className="mt-5 aspect-[4/3] overflow-hidden rounded-lg border border-border-soft">
+                    {/* Coloured stage under the product shot. A flat shape
+                        behind a photo is the cheapest way to make an ordinary
+                        product image look art-directed. Once the cutouts land,
+                        drop the inner rounding and let the house overflow the
+                        stage's top edge. */}
+                    <div
+                      className={`mt-5 rounded-lg p-4 ${
+                        plan.featured ? 'bg-sage' : 'bg-salmon/50'
+                      }`}
+                    >
                       <Image
                         src={plan.image}
                         alt={plan.imageAlt}
                         width={640}
                         height={480}
-                        className="h-full w-full object-cover"
+                        className="aspect-[4/3] h-full w-full rounded-md object-cover"
                       />
                     </div>
 
