@@ -3,6 +3,7 @@
 //   pnpm check:order
 
 import assert from 'node:assert/strict'
+import { VCity, vCity } from '../lib/bg.ts'
 import {
   LIMITS,
   hasErrors,
@@ -135,5 +136,14 @@ const both = validateOrder({
 })
 assert.ok(both.errors.name && both.errors.officeCode)
 assert.equal(both.value, undefined, 'no value when invalid')
+
+// --- Bulgarian preposition agreement ---------------------------------------
+// "в Варна" is unpronounceable; the preposition becomes "във" before в and ф.
+assert.equal(vCity('София'), 'в София')
+assert.equal(vCity('Варна'), 'във Варна')
+assert.equal(vCity('Велико Търново'), 'във Велико Търново')
+assert.equal(vCity('Фотиново'), 'във Фотиново')
+assert.equal(VCity('Варна'), 'Във Варна')
+assert.equal(VCity('Пловдив'), 'В Пловдив')
 
 console.log('check-order: all assertions passed')

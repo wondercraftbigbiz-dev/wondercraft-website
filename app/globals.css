@@ -259,27 +259,34 @@
 }
 
 /* Form controls inside the modal. Lived in an inline <style> in
-   contact-modal.tsx until the checkout grew a second consumer. */
-.modal-input {
-  width: 100%;
-  border: 1px solid var(--color-border-soft);
-  border-radius: var(--radius-md);
-  background: var(--color-cream);
-  color: var(--color-charcoal);
-  padding: 0.625rem 0.75rem;
-  /* 16px exactly: anything smaller makes iOS Safari zoom on focus. */
-  font-size: 16px;
-  font-family: var(--font-sans);
-  transition: border-color 150ms ease-out;
-}
-.modal-input:focus-visible {
-  border-color: var(--color-salmon-deep);
-}
-.modal-input::placeholder {
-  color: var(--color-charcoal-soft);
-}
-.modal-input[aria-invalid='true'] {
-  border-color: var(--color-salmon-deep);
+   contact-modal.tsx until the checkout grew a second consumer.
+ *
+ * Must be in @layer components, not unlayered: unlayered CSS outranks every
+ * layer, so the `padding` shorthand here would beat Tailwind's pl-9/pr-9 and
+ * the combobox chevron and search icons would sit on top of the text. Inside
+ * `components`, the `utilities` layer wins, which is what utilities are for. */
+@layer components {
+  .modal-input {
+    width: 100%;
+    border: 1px solid var(--color-border-soft);
+    border-radius: var(--radius-md);
+    background: var(--color-cream);
+    color: var(--color-charcoal);
+    padding: 0.625rem 0.75rem;
+    /* 16px exactly: anything smaller makes iOS Safari zoom on focus. */
+    font-size: 16px;
+    font-family: var(--font-sans);
+    transition: border-color 150ms ease-out;
+  }
+  .modal-input:focus-visible {
+    border-color: var(--color-salmon-deep);
+  }
+  .modal-input::placeholder {
+    color: var(--color-charcoal-soft);
+  }
+  .modal-input[aria-invalid='true'] {
+    border-color: var(--color-salmon-deep);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

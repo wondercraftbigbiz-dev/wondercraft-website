@@ -2,7 +2,13 @@
 
 import { useEffect, useReducer, useRef } from 'react'
 import { plans, type PlanId } from '@/lib/data/pricing'
-import { LIMITS, hasErrors, validateContact } from '@/lib/order/schema'
+import {
+  LIMITS,
+  hasErrors,
+  validateContact,
+  validateDelivery,
+} from '@/lib/order/schema'
+import { DeliverySection } from './checkout/delivery-section'
 import {
   initialOrderState,
   orderReducer,
@@ -34,13 +40,7 @@ export function ContactModal({
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     const draft = toOrderDraft(state)
-    const next = validateContact(draft)
-
-    // Legacy free-text destination. Replaced by the Econt city and office
-    // pickers in the next commit, which is when validateDelivery starts running.
-    if (!state.delivery.cityQuery.trim()) {
-      next.city = 'Моля, въведете град или офис на куриер.'
-    }
+    const next = { ...validateContact(draft), ...validateDelivery(draft.delivery) }
 
     dispatch({ type: 'setErrors', errors: next })
     if (!hasErrors(next)) {
@@ -95,26 +95,6 @@ export function ContactModal({
                   aria-describedby={describedBy}
                   onChange={(e) =>
                     dispatch({ type: 'setText', field: 'phone', value: e.target.value })
-                  }
-                />
-              )}
-            </Field>
-
-            <Field label="Град / офис на куриер" error={errors.city}>
-              {({ describedBy, hasError }) => (
-                <input
-                  name="city"
-                  type="text"
-                  className="modal-input"
-                  value={state.delivery.cityQuery}
-                  aria-invalid={hasError || undefined}
-                  aria-describedby={describedBy}
-                  onChange={(e) =>
-                    dispatch({
-                      type: 'setDeliveryText',
-                      field: 'cityQuery',
-                      value: e.target.value,
-                    })
                   }
                 />
               )}
@@ -184,6 +164,12 @@ export function ContactModal({
                 </Field>
               </>
             )}
+
+            <hr className="border-border-soft" />
+
+            <DeliverySection state={state} dispatch={dispatch} />
+
+            <hr className="border-border-soft" />
 
             <Field label="Съобщение (по избор)" error={errors.message}>
               {({ describedBy }) => (

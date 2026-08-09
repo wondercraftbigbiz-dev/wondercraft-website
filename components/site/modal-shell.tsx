@@ -82,6 +82,18 @@ export function ModalShell({
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
+        // An inner layer (an open combobox list, a non-empty search box) marks
+        // Escape as handled by calling preventDefault. Closing the whole modal
+        // on top of that would discard the customer's form.
+        //
+        // This has to be checked here rather than stopped at the source: Next's
+        // App Router hydrates the document, so React's delegated listener and
+        // this one sit on the same node, where stopPropagation has no effect.
+        // Tracking "is a layer open?" in a counter does not work either —
+        // keydown is a discrete event, so React flushes the inner layer's state
+        // update and its effect cleanup synchronously, before this listener
+        // runs.
+        if (e.defaultPrevented) return
         e.preventDefault()
         requestClose()
         return

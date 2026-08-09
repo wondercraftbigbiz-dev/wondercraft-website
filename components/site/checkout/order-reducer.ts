@@ -1,3 +1,4 @@
+import { VCity } from '@/lib/bg'
 import type { CityDto, DeliveryType, MoneyDto } from '@/lib/econt/dto'
 import type { PlanId } from '@/lib/data/pricing'
 import type { OrderDraft, OrderErrorField, OrderErrors } from '@/lib/order/schema'
@@ -218,18 +219,18 @@ export function orderReducer(state: OrderState, action: Action): OrderState {
         if (delivery.type === 'office' && !city.hasOffice) {
           if (city.hasAps) {
             delivery.type = 'aps'
-            notice = `В ${city.name} няма офис на Еконт, но има автомат.`
+            notice = `${VCity(city.name)} няма офис на Еконт, но има автомат.`
           } else {
             delivery.type = 'address'
-            notice = `В ${city.name} няма офис на Еконт — избрахме доставка до адрес.`
+            notice = `${VCity(city.name)} няма офис на Еконт — избрахме доставка до адрес.`
           }
         } else if (delivery.type === 'aps' && !city.hasAps) {
           if (city.hasOffice) {
             delivery.type = 'office'
-            notice = `В ${city.name} няма автомат на Еконт, но има офис.`
+            notice = `${VCity(city.name)} няма автомат на Еконт, но има офис.`
           } else {
             delivery.type = 'address'
-            notice = `В ${city.name} няма автомат на Еконт — избрахме доставка до адрес.`
+            notice = `${VCity(city.name)} няма автомат на Еконт — избрахме доставка до адрес.`
           }
         }
       }
