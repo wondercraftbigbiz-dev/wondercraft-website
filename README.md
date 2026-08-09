@@ -72,6 +72,48 @@ credentials in the Preview environment scope. Never point production at demo.
 `ECONT_FIXTURE_FAULT` forces each failure mode (`timeout`, `auth`, `validation`,
 `upstream`, `empty`) so every error state in the UI is reachable offline.
 
+#### Before this can go live
+
+`PACKED_PARCEL` in `lib/data/pricing.ts` is still zeroed, with a TODO. Econt
+prices on weight **and** volumetric weight, so until a real packed box is
+measured the delivery quote fails closed on purpose: the checkout shows
+"по договаряне" and the total is the product price alone. It never invents a
+number, because a number that is too low is absorbed by the shop on every
+order. Filling in that one block turns the live price on.
+
+Also unconfirmed: which field of Econt's `createLabel` response is the amount to
+charge. `resolvePrice()` in `lib/econt/shipping.ts` prefers
+`courierServicePrice`, then `totalPrice`, and deliberately never
+`receiverDueAmount` (which folds in cash-on-delivery). Confirm against the real
+API on a preview deploy before launch.
+
+#### Layout
+
+| Path | What lives there |
+|---|---|
+| `lib/econt/client.ts` | HTTP, Basic auth, timeouts, error mapping |
+| `lib/econt/nomenclatures.ts` | cities, offices, streets, quarters → client-safe DTOs |
+| `lib/econt/shipping.ts` | the delivery quote (`createLabel` `mode: 'calculate'`) |
+| `lib/econt/dto.ts` | the only Econt types the browser sees |
+| `lib/econt/fixtures/` | offline data, including the awkward cases |
+| `lib/order/schema.ts` | validation both the browser and the API run |
+| `lib/order/submit-order.ts` | where an order becomes real — the DB/Stripe seam |
+| `app/api/econt/*`, `app/api/order` | the routes |
+| `components/site/checkout/` | the form UI, driven by `order-reducer.ts` |
+
+Two boundaries worth not eroding:
+
+- **Quote requests carry a plan id, never a weight or a price.** The server reads
+  those from `lib/data/pricing.ts`. A client that could send them could quote
+  itself free shipping, and once Stripe is wired up, underpay.
+- **Nothing under `lib/econt/` except `dto.ts` may be imported by a client
+  component.** The rest starts with `import 'server-only'`, so a mistake is a
+  build error rather than a leaked password.
+
+Orders are currently written to the logs only — `order.received` for the shape
+and money, `order.contact` for personal data, split so the second can be dropped
+or routed separately. Both are replaced by the database write in the next phase.
+
 ### Checks
 
 ```bash

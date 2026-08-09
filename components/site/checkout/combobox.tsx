@@ -162,8 +162,10 @@ export function Combobox({
     }
 
     if (e.key === 'Tab' && open) {
-      const item = visible[activeIndex]
-      if (item) onSelect(item)
+      // Dismiss without selecting. Committing the highlighted row here would
+      // both pick a city the customer never confirmed, and swap the fields below
+      // mid-tab — the browser then has no next element to move to and focus
+      // falls to <body>, breaking the keyboard path through the form.
       setOpen(false)
     }
   }
