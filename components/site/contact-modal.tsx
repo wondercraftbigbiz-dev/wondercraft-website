@@ -8,7 +8,10 @@ import {
   validateContact,
   validateDelivery,
 } from '@/lib/order/schema'
+import { findPlan } from '@/lib/data/pricing'
 import { DeliverySection } from './checkout/delivery-section'
+import { OrderSummary } from './checkout/order-summary'
+import { useShippingQuote } from './checkout/use-shipping-quote'
 import {
   initialOrderState,
   orderReducer,
@@ -31,6 +34,9 @@ export function ContactModal({
   const { errors, planId } = state
   const isCustom = planId === 'custom'
   const submitted = state.submit.status === 'done'
+  const plan = findPlan(planId)
+
+  useShippingQuote(state, dispatch)
 
   // Move focus into the dialog on open.
   useEffect(() => {
@@ -53,14 +59,35 @@ export function ContactModal({
     <ModalShell
       title={submitted ? 'Благодарим ви!' : 'Поръчай сега'}
       onClose={onClose}
+      footer={
+        submitted ? undefined : (
+          <>
+            <OrderSummary
+              productEurCents={plan?.priceEurCents ?? 0}
+              quote={state.quote}
+            />
+            <button
+              type="submit"
+              form="order-form"
+              className="mt-4 inline-flex min-h-11 w-full items-center justify-center rounded-md border border-border-soft bg-salmon px-6 py-3 font-sans text-base font-semibold text-charcoal shadow-soft transition-all duration-200 ease-[cubic-bezier(0.34,1.56,0.64,1)] hover:-translate-y-0.5 hover:scale-[1.02] hover:bg-salmon-hover hover:shadow-soft-lg active:scale-[0.96] active:duration-100"
+            >
+              Поръчай сега
+            </button>
+            <p className="mt-3 text-center text-sm text-charcoal-soft">
+              Ще се свържем с вас, за да потвърдим детайлите.
+            </p>
+          </>
+        )
+      }
     >
       {submitted ? (
         <SuccessPanel />
       ) : (
         <form
+          id="order-form"
           onSubmit={handleSubmit}
           noValidate
-          className="max-h-[70vh] overflow-y-auto px-6 py-5"
+          className="min-h-0 flex-1 overflow-y-auto px-6 py-5"
         >
           <div className="flex flex-col gap-4">
             <Field label="Име" error={errors.name}>
@@ -188,15 +215,6 @@ export function ContactModal({
             </Field>
           </div>
 
-          <button
-            type="submit"
-            className="mt-6 inline-flex min-h-11 w-full items-center justify-center rounded-md border border-border-soft bg-salmon px-6 py-3 font-sans text-base font-semibold text-charcoal shadow-soft transition-all duration-200 ease-[cubic-bezier(0.34,1.56,0.64,1)] hover:-translate-y-0.5 hover:scale-[1.02] hover:bg-salmon-hover hover:shadow-soft-lg active:scale-[0.96] active:duration-100"
-          >
-            Поръчай сега
-          </button>
-          <p className="mt-3 text-center text-sm text-charcoal-soft">
-            Ще се свържем с вас, за да потвърдим детайлите.
-          </p>
         </form>
       )}
     </ModalShell>

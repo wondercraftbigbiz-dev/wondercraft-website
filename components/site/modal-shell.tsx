@@ -37,8 +37,10 @@ export function useModalShell(): ModalShellContextValue {
  * The dialog chrome: backdrop, transitions, Escape, focus trap, scroll lock,
  * and the titled header with its close button.
  *
- * `footer` renders outside the scrolling body, so a sticky order total stays
- * visible while the body scrolls.
+ * `footer` renders outside the scrolling body, so the order total stays put
+ * while the body scrolls. The sheet is a flex column with a bounded height for
+ * exactly that reason — dvh rather than vh so an on-screen keyboard does not
+ * push the footer off the bottom.
  */
 export function ModalShell({
   title,
@@ -132,11 +134,11 @@ export function ModalShell({
         role="dialog"
         aria-modal="true"
         aria-labelledby="modal-title"
-        className={`modal-sheet relative w-full max-w-lg rounded-t-xl border border-border-soft bg-cream shadow-soft-lg sm:rounded-xl ${
+        className={`modal-sheet relative flex max-h-[100dvh] w-full max-w-lg flex-col rounded-t-xl border border-border-soft bg-cream shadow-soft-lg sm:max-h-[92dvh] sm:rounded-xl ${
           isOpen ? 'is-open' : ''
         }`}
       >
-        <div className="flex items-center justify-between border-b border-border-soft px-6 py-4">
+        <div className="flex shrink-0 items-center justify-between border-b border-border-soft px-6 py-4">
           <h2
             id="modal-title"
             className="font-display text-xl font-semibold text-charcoal"
@@ -155,7 +157,11 @@ export function ModalShell({
 
         <ModalShellContext.Provider value={{ dialogRef, requestClose }}>
           {children}
-          {footer}
+          {footer && (
+            <div className="shrink-0 border-t border-border-soft bg-cream px-6 py-4">
+              {footer}
+            </div>
+          )}
         </ModalShellContext.Provider>
       </div>
     </div>

@@ -33,6 +33,13 @@ export function memoTtl<T>(
   })
 
   store.set(key, { at: Date.now(), value } as Entry<unknown>)
+
+  // Mark the stored promise as handled. Callers still see the rejection, but
+  // without this a caller that never awaits it — Promise.all short-circuiting on
+  // a sibling rejection is the usual way — leaves an unhandled rejection, which
+  // Node reports as a crash.
+  void value.catch(() => {})
+
   return value
 }
 

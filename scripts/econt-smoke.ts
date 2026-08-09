@@ -244,6 +244,10 @@ async function main(): Promise<void> {
   assert.equal(canFitInAps({ weightKg: 25, lengthCm: 10, widthCm: 10, heightCm: 10 }, limit), false)
 
   // --- Every forced fault maps to a Bulgarian message -------------------------
+  // getCities() fans out to two upstream calls, so a fault rejects both while
+  // Promise.all only surfaces one. memoTtl marks the stored promise as handled
+  // so the other does not become an unhandled rejection; if that regresses,
+  // this loop crashes the process rather than failing an assertion.
   const expected: Record<string, { kind: string; match: RegExp }> = {
     timeout: { kind: 'timeout', match: /Еконт/ },
     auth: { kind: 'auth', match: /Еконт/ },
