@@ -28,7 +28,7 @@ import type {
  */
 export function getCities(): Promise<CityDto[]> {
   return memoTtl('cities', TTL.nomenclature, async () => {
-    const [cities, offices] = await Promise.all([fetchCities(), getAllOffices()])
+    const [cities, offices] = await bothOrFirstError(fetchCities(), getAllOffices())
 
     const withOffice = new Set<number>()
     const withAps = new Set<number>()
@@ -66,7 +66,7 @@ export function getOffices(cityId: number): Promise<OfficeDto[]> {
 /** Streets and quarters for address-mode delivery. */
 export function getCityDetails(cityId: number): Promise<CityDetailsResponse> {
   return memoTtl(`city-details:${cityId}`, TTL.nomenclature, async () => {
-    const [streets, quarters] = await Promise.all([
+    const [streets, quarters] = await bothOrFirstError(
       econtPost<{ cityID: number }, GetStreetsResponse>(
         'Nomenclatures/NomenclaturesService.getStreets.json',
         { cityID: cityId },
@@ -75,7 +75,7 @@ export function getCityDetails(cityId: number): Promise<CityDetailsResponse> {
         'Nomenclatures/NomenclaturesService.getQuarters.json',
         { cityID: cityId },
       ),
-    ])
+    )
 
     return {
       streets: (streets.streets ?? [])
@@ -106,6 +106,26 @@ export async function findOffice(
 export async function findCity(cityId: number): Promise<CityDto | undefined> {
   const cities = await getCities()
   return cities.find((c) => c.id === cityId)
+}
+
+/**
+ * Await two calls, rejecting with the first error but never leaving the other
+ * rejection unhandled.
+ *
+ * Promise.all short-circuits: when both calls fail — which is exactly what an
+ * Econt outage or a timeout does — it surfaces one and abandons the other, and
+ * an abandoned rejection is an unhandled rejection, which Node treats as fatal.
+ * A whole-API outage taking the server down with it is not an acceptable
+ * failure mode for a delivery price.
+ */
+async function bothOrFirstError<A, B>(
+  a: Promise<A>,
+  b: Promise<B>,
+): Promise<[A, B]> {
+  const [ra, rb] = await Promise.allSettled([a, b])
+  if (ra.status === 'rejected') throw ra.reason
+  if (rb.status === 'rejected') throw rb.reason
+  return [ra.value, rb.value]
 }
 
 function fetchCities(): Promise<EcontCity[]> {

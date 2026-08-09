@@ -5,7 +5,8 @@ import { findCity, findOffice } from '@/lib/econt/nomenclatures'
 import { logFailure, rateLimitGuard } from '@/lib/econt/route-helpers'
 import type { Money } from '@/lib/money'
 import { hasErrors, validateOrder, type OrderDraft } from '@/lib/order/schema'
-import { submitOrder } from '@/lib/order/submit-order'
+import { submitOrder, type OrderContext } from '@/lib/order/submit-order'
+import type { CityDto, OfficeDto } from '@/lib/econt/dto'
 
 export const runtime = 'nodejs'
 
@@ -77,34 +78,57 @@ export async function POST(request: Request) {
   }
 
   try {
-    const city = await findCity(value.delivery.cityId)
-    if (!city) {
-      return json({
-        ok: false,
-        message: 'Не разпознахме този град. Изберете го отново от списъка.',
-        field: 'city',
-      })
-    }
-
     // Re-resolve against fresh nomenclature: an office the client cached may
     // have closed or been renamed since. Better to ask the customer to pick
     // again than to accept an order addressed to somewhere that no longer exists.
-    let office = null
-    if (value.delivery.type !== 'address') {
-      office = (await findOffice(city.id, String(value.delivery.officeCode))) ?? null
-      if (!office) {
+    //
+    // But distinguish "Econt says this does not exist" from "Econt did not
+    // answer". Only the first is the customer's problem to fix.
+    let city: CityDto | null = null
+    let office: OfficeDto | null = null
+
+    try {
+      city = (await findCity(value.delivery.cityId)) ?? null
+      if (!city) {
         return json({
           ok: false,
-          message:
-            value.delivery.type === 'aps'
-              ? 'Този автомат вече не е активен. Изберете друг.'
-              : 'Този офис вече не е активен. Изберете друг.',
-          field: 'officeCode',
+          message: 'Не разпознахме този град. Изберете го отново от списъка.',
+          field: 'city',
         })
       }
+
+      if (value.delivery.type !== 'address') {
+        office =
+          (await findOffice(city.id, String(value.delivery.officeCode))) ?? null
+        if (!office) {
+          return json({
+            ok: false,
+            message:
+              value.delivery.type === 'aps'
+                ? 'Този автомат вече не е активен. Изберете друг.'
+                : 'Този офис вече не е активен. Изберете друг.',
+            field: 'officeCode',
+          })
+        }
+      }
+    } catch (error) {
+      // Econt is down. Accept the order anyway with the destination unverified:
+      // the customer chose from a list that was valid when the page loaded, and
+      // every order is confirmed by phone regardless. Turning them away because
+      // a third party is unavailable loses the sale for nothing.
+      logFailure(error)
+      city = null
+      office = null
     }
 
-    const accepted = await submitOrder(value, { city, office })
+    const context: OrderContext = {
+      city,
+      office,
+      rawCityId: value.delivery.cityId,
+      rawOfficeCode: value.delivery.officeCode ?? null,
+    }
+
+    const accepted = await submitOrder(value, context)
 
     return json({
       ok: true,

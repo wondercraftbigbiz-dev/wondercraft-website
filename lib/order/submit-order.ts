@@ -7,6 +7,20 @@ import { logFailure } from '@/lib/econt/route-helpers'
 import { calculateShipping } from '@/lib/econt/shipping'
 import type { OrderInput } from './schema'
 
+/**
+ * The resolved destination, or as much of it as Econt would tell us.
+ *
+ * `city` is null when Econt was unreachable at submit time. The order is still
+ * accepted — see the note in submitOrder — so the raw identifiers the browser
+ * sent are kept for the follow-up phone call.
+ */
+export type OrderContext = {
+  city: CityDto | null
+  office: OfficeDto | null
+  rawCityId: number
+  rawOfficeCode: string | null
+}
+
 export type AcceptedOrder = {
   orderRef: string
   plan: Plan
@@ -28,7 +42,7 @@ export type AcceptedOrder = {
  */
 export async function submitOrder(
   input: OrderInput,
-  context: { city: CityDto; office: OfficeDto | null },
+  context: OrderContext,
 ): Promise<AcceptedOrder> {
   const plan = findPlan(input.planId)
   if (!plan) throw new Error(`Unknown plan ${input.planId}`)
@@ -36,8 +50,8 @@ export async function submitOrder(
   const product = eur(plan.priceEurCents)
   const delivery: DeliveryDto = {
     type: input.delivery.type,
-    cityId: context.city.id,
-    officeCode: context.office?.code,
+    cityId: context.city?.id ?? context.rawCityId,
+    officeCode: context.office?.code ?? context.rawOfficeCode ?? undefined,
     street: input.delivery.street,
     streetNum: input.delivery.streetNum,
     quarter: input.delivery.quarter,
@@ -53,18 +67,20 @@ export async function submitOrder(
   // party is down would lose a customer for nothing.
   let shipping: Money | null = null
   let quoteId: string | null = null
-  try {
-    const quote = await calculateShipping({
-      plan,
-      city: context.city,
-      office: context.office,
-      delivery,
-      receiver: { name: input.name, phone: input.phone },
-    })
-    shipping = toEur(quote.shipping)
-    quoteId = quote.quoteId
-  } catch (error) {
-    logFailure(error)
+  if (context.city) {
+    try {
+      const quote = await calculateShipping({
+        plan,
+        city: context.city,
+        office: context.office,
+        delivery,
+        receiver: { name: input.name, phone: input.phone },
+      })
+      shipping = toEur(quote.shipping)
+      quoteId = quote.quoteId
+    } catch (error) {
+      logFailure(error)
+    }
   }
 
   const total = shipping ? addMoney(product, shipping) : product
@@ -85,7 +101,7 @@ export async function submitOrder(
 async function persistOrder(record: {
   orderRef: string
   input: OrderInput
-  context: { city: CityDto; office: OfficeDto | null }
+  context: OrderContext
   product: Money
   shipping: Money | null
   total: Money
@@ -102,13 +118,17 @@ async function persistOrder(record: {
       sku: findPlan(input.planId)?.sku,
       delivery: {
         type: input.delivery.type,
-        cityId: context.city.id,
-        cityName: context.city.name,
-        postCode: context.city.postCode,
-        officeCode: context.office?.code ?? null,
-        street: input.delivery.street ?? null,
-        streetNum: input.delivery.streetNum ?? null,
-        quarter: input.delivery.quarter ?? null,
+        cityId: context.city?.id ?? context.rawCityId,
+        cityName: context.city?.name ?? null,
+        postCode: context.city?.postCode ?? null,
+        officeCode: context.office?.code ?? context.rawOfficeCode ?? null,
+        street: blank(input.delivery.street),
+        streetNum: blank(input.delivery.streetNum),
+        quarter: blank(input.delivery.quarter),
+        // True when Econt was unreachable, so the destination is unverified and
+        // the names above are missing. Flags the orders that need a careful
+        // phone call.
+        unverified: context.city === null,
       },
       money: {
         productEurCents: record.product.cents,
@@ -136,9 +156,9 @@ async function persistOrder(record: {
       printName: input.printName,
       customization: input.customization,
       message: input.message,
-      floor: input.delivery.floor ?? null,
-      apt: input.delivery.apt ?? null,
-      note: input.delivery.note ?? null,
+      floor: blank(input.delivery.floor),
+      apt: blank(input.delivery.apt),
+      note: blank(input.delivery.note),
     }),
   )
 }
@@ -158,6 +178,12 @@ async function notifyOrder(_record: {
  * Time-prefixed so references sort chronologically, and short enough to read
  * back over the phone without asking anyone to spell a UUID.
  */
+/** Empty strings are noise in a log; null says "not provided". */
+function blank(v: string | undefined): string | null {
+  const t = (v ?? '').trim()
+  return t.length > 0 ? t : null
+}
+
 function makeOrderRef(): string {
   const time = Date.now().toString(36).toUpperCase()
   const rand = Math.floor(Math.random() * 36 ** 3)
