@@ -56,6 +56,17 @@ checkout matches the site's design.
 - Production: `https://ee.econt.com/services`, credentials from the Econt contract
 - Register for a test account at <https://login-demo.econt.com/register/>
 
+The base URL and the credentials are a matched pair — the two environments are
+separate Econt accounts, so contract credentials fail against demo and vice
+versa. `ECONT_BASE_URL` is therefore **required** when `ECONT_MODE=live`, with no
+default: a live deploy missing it would otherwise quote demo tariffs as if they
+were the contract's, silently.
+
+Nothing here creates a shipment. `calculateShipping()` is the only call that
+posts to `Shipments/`, always with `mode: 'calculate'`; `mode: 'create'` exists in
+the type union and at no call site. Live credentials price parcels, they do not
+spend money.
+
 **Some sandboxed environments block `*.econt.com`.** Claude Code's web sandbox,
 for instance, returns `403` to the proxy `CONNECT`:
 

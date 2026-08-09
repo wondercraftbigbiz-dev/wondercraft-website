@@ -358,10 +358,28 @@ async function main(): Promise<void> {
     },
   )
 
+  // Live mode must never silently fall back to the demo base URL. Credentials
+  // set and ECONT_BASE_URL forgotten used to mean demo tariffs quoted as the
+  // contract's, with nothing to show for it in the logs.
+  process.env.ECONT_PASSWORD = 'p'
+  delete process.env.ECONT_BASE_URL
+  assert.throws(
+    () => getEcontConfig(),
+    (err: unknown) => {
+      assert.ok(isEcontError(err) && err.kind === 'config')
+      assert.deepEqual((err.detail as { missing: string[] }).missing, [
+        'ECONT_BASE_URL',
+      ])
+      return true
+    },
+  )
+
   // Fixture mode must keep working with no credentials whatsoever — that is what
-  // keeps a fresh clone and a network-restricted sandbox usable.
+  // keeps a fresh clone and a network-restricted sandbox usable. It also keeps
+  // its demo default, which is why the check above is scoped to live mode.
   process.env.ECONT_MODE = 'fixture'
   delete process.env.ECONT_USERNAME
+  assert.equal(getEcontConfig().baseUrl, 'https://demo.econt.com/ee/services')
   assert.doesNotThrow(() => getEcontConfig())
   assert.doesNotThrow(() => assertSenderConfigured(getEcontConfig()))
   invalidate()

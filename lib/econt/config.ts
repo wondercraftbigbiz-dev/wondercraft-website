@@ -34,6 +34,15 @@ export type EcontConfig = {
   fault: EcontFault
 }
 
+/**
+ * Fixture mode only. Live mode must name its base URL explicitly.
+ *
+ * Defaulting live mode to demo would be the one silent failure in this file:
+ * credentials set, ECONT_BASE_URL forgotten, and the shop quotes demo tariffs as
+ * if they were the contract's. Nothing errors, nothing logs, and the difference
+ * is absorbed on every order. A missing base URL is a misconfiguration, so it is
+ * treated as one — see getEcontConfig below.
+ */
 const DEFAULT_BASE_URL = 'https://demo.econt.com/ee/services'
 
 function env(name: string): string {
@@ -49,7 +58,10 @@ function env(name: string): string {
  */
 export function getEcontConfig(): EcontConfig {
   const mode: EcontMode = env('ECONT_MODE') === 'live' ? 'live' : 'fixture'
-  const baseUrl = (env('ECONT_BASE_URL') || DEFAULT_BASE_URL).replace(/\/+$/, '')
+  const configuredBaseUrl = env('ECONT_BASE_URL')
+  const baseUrl = (
+    mode === 'live' ? configuredBaseUrl : configuredBaseUrl || DEFAULT_BASE_URL
+  ).replace(/\/+$/, '')
   const username = env('ECONT_USERNAME')
   const password = env('ECONT_PASSWORD')
 
@@ -69,6 +81,7 @@ export function getEcontConfig(): EcontConfig {
   // assertSenderConfigured below.
   if (mode === 'live') {
     const missing: string[] = []
+    if (!baseUrl) missing.push('ECONT_BASE_URL')
     if (!username) missing.push('ECONT_USERNAME')
     if (!password) missing.push('ECONT_PASSWORD')
     if (missing.length > 0) throw misconfigured(missing)
