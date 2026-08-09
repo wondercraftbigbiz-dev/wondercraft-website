@@ -258,6 +258,30 @@
   transform: translateY(0) scale(1);
 }
 
+/* Form controls inside the modal. Lived in an inline <style> in
+   contact-modal.tsx until the checkout grew a second consumer. */
+.modal-input {
+  width: 100%;
+  border: 1px solid var(--color-border-soft);
+  border-radius: var(--radius-md);
+  background: var(--color-cream);
+  color: var(--color-charcoal);
+  padding: 0.625rem 0.75rem;
+  /* 16px exactly: anything smaller makes iOS Safari zoom on focus. */
+  font-size: 16px;
+  font-family: var(--font-sans);
+  transition: border-color 150ms ease-out;
+}
+.modal-input:focus-visible {
+  border-color: var(--color-salmon-deep);
+}
+.modal-input::placeholder {
+  color: var(--color-charcoal-soft);
+}
+.modal-input[aria-invalid='true'] {
+  border-color: var(--color-salmon-deep);
+}
+
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;
