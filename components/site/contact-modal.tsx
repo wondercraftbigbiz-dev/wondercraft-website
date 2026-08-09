@@ -8,6 +8,7 @@ import {
   validateContact,
   validateDelivery,
 } from '@/lib/order/schema'
+import type { OrderResponse } from '@/lib/econt/dto'
 import { findPlan } from '@/lib/data/pricing'
 import { DeliverySection } from './checkout/delivery-section'
 import { OrderSummary } from './checkout/order-summary'
@@ -17,7 +18,7 @@ import {
   orderReducer,
   toOrderDraft,
 } from './checkout/order-reducer'
-import { CheckIcon } from './icons'
+import { AlertIcon, CheckIcon, SpinnerIcon } from './icons'
 import { Field } from './field'
 import { ModalShell, useModalShell } from './modal-shell'
 
@@ -34,6 +35,7 @@ export function ContactModal({
   const { errors, planId } = state
   const isCustom = planId === 'custom'
   const submitted = state.submit.status === 'done'
+  const submitting = state.submit.status === 'submitting'
   const plan = findPlan(planId)
 
   useShippingQuote(state, dispatch)
@@ -43,15 +45,42 @@ export function ContactModal({
     firstFieldRef.current?.focus()
   }, [])
 
-  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
+    if (submitting) return
+
     const draft = toOrderDraft(state)
     const next = { ...validateContact(draft), ...validateDelivery(draft.delivery) }
-
     dispatch({ type: 'setErrors', errors: next })
-    if (!hasErrors(next)) {
-      // Prototype: nothing is sent yet. Show the fake success state.
-      dispatch({ type: 'submitOk', orderRef: '' })
+    if (hasErrors(next)) return
+
+    dispatch({ type: 'submitStart' })
+    try {
+      const res = await fetch('/api/order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(draft),
+      })
+      const body = (await res.json()) as OrderResponse
+
+      if (body.ok) {
+        dispatch({ type: 'submitOk', orderRef: body.orderRef })
+        return
+      }
+
+      // The server re-runs the same validator, so its field errors render
+      // through exactly the same error record as the client's own.
+      if (body.errors) dispatch({ type: 'setErrors', errors: body.errors })
+      else if (body.field) {
+        dispatch({ type: 'setErrors', errors: { [body.field]: body.message } as never })
+      }
+      dispatch({ type: 'submitError', message: body.message })
+    } catch {
+      dispatch({
+        type: 'submitError',
+        message:
+          'Нещо се обърка при изпращането. Проверете връзката и опитайте отново.',
+      })
     }
   }
 
@@ -66,12 +95,25 @@ export function ContactModal({
               productEurCents={plan?.priceEurCents ?? 0}
               quote={state.quote}
             />
+            {state.submit.status === 'error' && (
+              <p
+                role="alert"
+                className="mt-4 flex items-start gap-2 rounded-md border border-salmon-deep bg-salmon/25 px-4 py-3 text-sm leading-relaxed text-charcoal"
+              >
+                <AlertIcon className="mt-0.5 h-5 w-5 shrink-0" aria-hidden="true" />
+                {state.submit.message}
+              </p>
+            )}
             <button
               type="submit"
               form="order-form"
-              className="mt-4 inline-flex min-h-11 w-full items-center justify-center rounded-md border border-border-soft bg-salmon px-6 py-3 font-sans text-base font-semibold text-charcoal shadow-soft transition-all duration-200 ease-[cubic-bezier(0.34,1.56,0.64,1)] hover:-translate-y-0.5 hover:scale-[1.02] hover:bg-salmon-hover hover:shadow-soft-lg active:scale-[0.96] active:duration-100"
+              disabled={submitting}
+              className="mt-4 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-md border border-border-soft bg-salmon px-6 py-3 font-sans text-base font-semibold text-charcoal shadow-soft transition-all duration-200 ease-[cubic-bezier(0.34,1.56,0.64,1)] hover:-translate-y-0.5 hover:scale-[1.02] hover:bg-salmon-hover hover:shadow-soft-lg active:scale-[0.96] active:duration-100 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0 disabled:hover:scale-100"
             >
-              Поръчай сега
+              {submitting && (
+                <SpinnerIcon className="h-4 w-4 animate-spin" aria-hidden="true" />
+              )}
+              {submitting ? 'Изпращаме…' : 'Поръчай сега'}
             </button>
             <p className="mt-3 text-center text-sm text-charcoal-soft">
               Ще се свържем с вас, за да потвърдим детайлите.
@@ -81,7 +123,11 @@ export function ContactModal({
       }
     >
       {submitted ? (
-        <SuccessPanel />
+        <SuccessPanel
+          orderRef={
+            state.submit.status === 'done' ? state.submit.orderRef : ''
+          }
+        />
       ) : (
         <form
           id="order-form"
@@ -221,7 +267,7 @@ export function ContactModal({
   )
 }
 
-function SuccessPanel() {
+function SuccessPanel({ orderRef }: { orderRef: string }) {
   const { requestClose } = useModalShell()
 
   return (
@@ -233,6 +279,14 @@ function SuccessPanel() {
         Получихме заявката ви. Ще се свържем с вас възможно най-скоро, за да
         потвърдим поръчката и доставката.
       </p>
+      {orderRef && (
+        <p className="mt-4 text-sm text-charcoal-soft">
+          Номер на поръчката:{' '}
+          <span className="font-sans font-semibold tabular-nums text-charcoal">
+            {orderRef}
+          </span>
+        </p>
+      )}
       <button
         type="button"
         onClick={requestClose}
