@@ -1,27 +1,30 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
-import { plans, type Plan } from '@/lib/data/pricing'
+import { useEffect, useReducer, useRef } from 'react'
+import { plans, type PlanId } from '@/lib/data/pricing'
+import { LIMITS, hasErrors, validateContact } from '@/lib/order/schema'
+import {
+  initialOrderState,
+  orderReducer,
+  toOrderDraft,
+} from './checkout/order-reducer'
 import { CheckIcon } from './icons'
 import { Field } from './field'
 import { ModalShell, useModalShell } from './modal-shell'
-
-type Errors = Partial<Record<'name' | 'phone' | 'city' | 'model', string>>
 
 export function ContactModal({
   initialModel,
   onClose,
 }: {
-  initialModel: Plan['id']
+  initialModel: PlanId
   onClose: () => void
 }) {
   const firstFieldRef = useRef<HTMLInputElement>(null)
+  const [state, dispatch] = useReducer(orderReducer, initialModel, initialOrderState)
 
-  const [model, setModel] = useState<Plan['id']>(initialModel)
-  const [errors, setErrors] = useState<Errors>({})
-  const [submitted, setSubmitted] = useState(false)
-
-  const isCustom = model === 'custom'
+  const { errors, planId } = state
+  const isCustom = planId === 'custom'
+  const submitted = state.submit.status === 'done'
 
   // Move focus into the dialog on open.
   useEffect(() => {
@@ -30,22 +33,19 @@ export function ContactModal({
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
-    const form = e.currentTarget
-    const data = new FormData(form)
-    const next: Errors = {}
+    const draft = toOrderDraft(state)
+    const next = validateContact(draft)
 
-    if (!String(data.get('name') ?? '').trim()) next.name = 'Моля, въведете име.'
-    if (!String(data.get('phone') ?? '').trim())
-      next.phone = 'Моля, въведете телефон.'
-    if (!String(data.get('city') ?? '').trim())
+    // Legacy free-text destination. Replaced by the Econt city and office
+    // pickers in the next commit, which is when validateDelivery starts running.
+    if (!state.delivery.cityQuery.trim()) {
       next.city = 'Моля, въведете град или офис на куриер.'
-    if (!String(data.get('model') ?? '').trim())
-      next.model = 'Моля, изберете модел.'
+    }
 
-    setErrors(next)
-    if (Object.keys(next).length === 0) {
-      // Prototype: nothing is sent. Show fake success state.
-      setSubmitted(true)
+    dispatch({ type: 'setErrors', errors: next })
+    if (!hasErrors(next)) {
+      // Prototype: nothing is sent yet. Show the fake success state.
+      dispatch({ type: 'submitOk', orderRef: '' })
     }
   }
 
@@ -64,64 +64,141 @@ export function ContactModal({
         >
           <div className="flex flex-col gap-4">
             <Field label="Име" error={errors.name}>
-              <input
-                ref={firstFieldRef}
-                name="name"
-                type="text"
-                autoComplete="name"
-                className="modal-input"
-              />
+              {({ describedBy, hasError }) => (
+                <input
+                  ref={firstFieldRef}
+                  name="name"
+                  type="text"
+                  autoComplete="name"
+                  maxLength={LIMITS.name}
+                  className="modal-input"
+                  value={state.name}
+                  aria-invalid={hasError || undefined}
+                  aria-describedby={describedBy}
+                  onChange={(e) =>
+                    dispatch({ type: 'setText', field: 'name', value: e.target.value })
+                  }
+                />
+              )}
             </Field>
 
             <Field label="Телефон" error={errors.phone}>
-              <input
-                name="phone"
-                type="tel"
-                autoComplete="tel"
-                className="modal-input"
-              />
+              {({ describedBy, hasError }) => (
+                <input
+                  name="phone"
+                  type="tel"
+                  inputMode="tel"
+                  autoComplete="tel"
+                  className="modal-input"
+                  value={state.phone}
+                  aria-invalid={hasError || undefined}
+                  aria-describedby={describedBy}
+                  onChange={(e) =>
+                    dispatch({ type: 'setText', field: 'phone', value: e.target.value })
+                  }
+                />
+              )}
             </Field>
 
             <Field label="Град / офис на куриер" error={errors.city}>
-              <input name="city" type="text" className="modal-input" />
+              {({ describedBy, hasError }) => (
+                <input
+                  name="city"
+                  type="text"
+                  className="modal-input"
+                  value={state.delivery.cityQuery}
+                  aria-invalid={hasError || undefined}
+                  aria-describedby={describedBy}
+                  onChange={(e) =>
+                    dispatch({
+                      type: 'setDeliveryText',
+                      field: 'cityQuery',
+                      value: e.target.value,
+                    })
+                  }
+                />
+              )}
             </Field>
 
             <Field label="Модел" error={errors.model}>
-              <select
-                name="model"
-                value={model}
-                onChange={(e) => setModel(e.target.value as Plan['id'])}
-                className="modal-input"
-              >
-                {plans.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name} — {p.euro} ({p.lev})
-                  </option>
-                ))}
-              </select>
+              {({ describedBy, hasError }) => (
+                <select
+                  name="model"
+                  className="modal-input"
+                  value={planId}
+                  aria-invalid={hasError || undefined}
+                  aria-describedby={describedBy}
+                  onChange={(e) =>
+                    dispatch({ type: 'setPlan', planId: e.target.value as PlanId })
+                  }
+                >
+                  {plans.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name} — {p.euro} ({p.lev})
+                    </option>
+                  ))}
+                </select>
+              )}
             </Field>
 
             {isCustom && (
               <>
-                <Field label="Име за печат">
-                  <input name="printName" type="text" className="modal-input" />
+                <Field label="Име за печат" error={errors.printName}>
+                  {({ describedBy, hasError }) => (
+                    <input
+                      name="printName"
+                      type="text"
+                      maxLength={LIMITS.printName}
+                      className="modal-input"
+                      value={state.printName}
+                      aria-invalid={hasError || undefined}
+                      aria-describedby={describedBy}
+                      onChange={(e) =>
+                        dispatch({
+                          type: 'setText',
+                          field: 'printName',
+                          value: e.target.value,
+                        })
+                      }
+                    />
+                  )}
                 </Field>
-                <Field label="Допълнителна персонализация">
-                  <textarea
-                    name="customization"
-                    rows={2}
-                    className="modal-input resize-none"
-                  />
+                <Field label="Допълнителна персонализация" error={errors.customization}>
+                  {({ describedBy }) => (
+                    <textarea
+                      name="customization"
+                      rows={2}
+                      maxLength={LIMITS.customization}
+                      className="modal-input resize-none"
+                      value={state.customization}
+                      aria-describedby={describedBy}
+                      onChange={(e) =>
+                        dispatch({
+                          type: 'setText',
+                          field: 'customization',
+                          value: e.target.value,
+                        })
+                      }
+                    />
+                  )}
                 </Field>
               </>
             )}
 
-            <Field label="Съобщение (по избор)">
-              <textarea
-                name="message"
-                rows={2}
-                className="modal-input resize-none"
-              />
+            <Field label="Съобщение (по избор)" error={errors.message}>
+              {({ describedBy }) => (
+                <textarea
+                  name="message"
+                  rows={2}
+                  maxLength={LIMITS.message}
+                  className="modal-input resize-none"
+                  value={state.message}
+                  aria-describedby={describedBy}
+                  onChange={(e) =>
+                    dispatch({ type: 'setText', field: 'message', value: e.target.value })
+                  }
+                />
+              )}
             </Field>
           </div>
 

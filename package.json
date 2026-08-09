@@ -9,6 +9,7 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "check:money": "node --experimental-strip-types --no-warnings scripts/check-money.ts",
+    "check:order": "node --experimental-strip-types --no-warnings --import ./scripts/node-hooks.mjs scripts/check-order.ts",
     "check:econt": "node --experimental-strip-types --no-warnings --import ./scripts/node-hooks.mjs scripts/econt-smoke.ts"
   },
   "dependencies": {
