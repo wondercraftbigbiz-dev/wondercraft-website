@@ -88,9 +88,11 @@ export function ContactModal({
     <ModalShell
       title={submitted ? 'Благодарим ви!' : 'Поръчай сега'}
       onClose={onClose}
-      footer={
+      aside={
         submitted ? undefined : (
-          <>
+          // Sticky so the total and the button stay in view if the column
+          // itself has to scroll — a quote error adds a paragraph below.
+          <div className="lg:sticky lg:top-0">
             <OrderSummary
               productEurCents={plan?.priceEurCents ?? 0}
               quote={state.quote}
@@ -118,7 +120,7 @@ export function ContactModal({
             <p className="mt-3 text-center text-sm text-charcoal-soft">
               Ще се свържем с вас, за да потвърдим детайлите.
             </p>
-          </>
+          </div>
         )
       }
     >
@@ -133,7 +135,9 @@ export function ContactModal({
           id="order-form"
           onSubmit={handleSubmit}
           noValidate
-          className="min-h-0 flex-1 overflow-y-auto px-6 py-5"
+          // flex-1 covers the stacked layout; the explicit placement is for the
+          // lg grid, where flex sizing no longer applies.
+          className="min-h-0 flex-1 overflow-y-auto px-6 py-5 lg:col-start-1 lg:row-start-2"
         >
           <div className="flex flex-col gap-4">
             <Field label="Име" error={errors.name}>

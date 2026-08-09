@@ -37,21 +37,29 @@ export function useModalShell(): ModalShellContextValue {
  * The dialog chrome: backdrop, transitions, Escape, focus trap, scroll lock,
  * and the titled header with its close button.
  *
- * `footer` renders outside the scrolling body, so the order total stays put
- * while the body scrolls. The sheet is a flex column with a bounded height for
- * exactly that reason — dvh rather than vh so an on-screen keyboard does not
- * push the footer off the bottom.
+ * `aside` renders outside the scrolling body, so the order total stays put while
+ * the body scrolls. Where it sits depends on the width:
+ *
+ * - below `lg` the sheet is a flex column and the aside is the footer strip —
+ *   bounded height in dvh rather than vh, so an on-screen keyboard does not push
+ *   the submit button off the bottom;
+ * - from `lg` the sheet becomes a two-column grid and the aside is the right
+ *   column, beside the form rather than under it.
+ *
+ * It is the same node in both cases, moved by CSS. Rendering it twice and hiding
+ * one copy would duplicate the summary's aria-live region, and screen readers
+ * would announce every shipping quote twice.
  */
 export function ModalShell({
   title,
   onClose,
   children,
-  footer,
+  aside,
 }: {
   title: string
   onClose: () => void
   children: React.ReactNode
-  footer?: React.ReactNode
+  aside?: React.ReactNode
 }) {
   const dialogRef = useRef<HTMLDivElement>(null)
 
@@ -134,11 +142,17 @@ export function ModalShell({
         role="dialog"
         aria-modal="true"
         aria-labelledby="modal-title"
-        className={`modal-sheet relative flex max-h-[100dvh] w-full max-w-lg flex-col rounded-t-xl border border-border-soft bg-cream shadow-soft-lg sm:max-h-[92dvh] sm:rounded-xl ${
-          isOpen ? 'is-open' : ''
-        }`}
+        className={`modal-sheet relative flex max-h-[100dvh] w-full flex-col overflow-hidden rounded-t-xl border border-border-soft bg-cream shadow-soft-lg sm:max-h-[92dvh] sm:rounded-xl ${
+          // Two columns only when there is something to put beside the body.
+          // minmax(0,…) rather than a bare 1fr: the default min-width:auto lets
+          // the office list and long city names widen the column instead of
+          // scrolling inside it.
+          aside
+            ? 'max-w-lg lg:grid lg:max-w-4xl lg:grid-cols-[minmax(0,1fr)_360px] lg:grid-rows-[auto_minmax(0,1fr)]'
+            : 'max-w-lg'
+        } ${isOpen ? 'is-open' : ''}`}
       >
-        <div className="flex shrink-0 items-center justify-between border-b border-border-soft px-6 py-4">
+        <div className="flex shrink-0 items-center justify-between border-b border-border-soft px-6 py-4 lg:col-span-2">
           <h2
             id="modal-title"
             className="font-display text-xl font-semibold text-charcoal"
@@ -157,9 +171,12 @@ export function ModalShell({
 
         <ModalShellContext.Provider value={{ dialogRef, requestClose }}>
           {children}
-          {footer && (
-            <div className="shrink-0 border-t border-border-soft bg-cream px-6 py-4">
-              {footer}
+          {aside && (
+            // Footer strip below lg, right-hand column from lg up. The tint
+            // reads the column as a separate receipt surface once it sits
+            // beside the form; as a footer strip it stays flush with the sheet.
+            <div className="shrink-0 border-t border-border-soft bg-cream px-6 py-4 lg:col-start-2 lg:row-start-2 lg:overflow-y-auto lg:border-l lg:border-t-0 lg:bg-kraft/20 lg:py-6">
+              {aside}
             </div>
           )}
         </ModalShellContext.Provider>
