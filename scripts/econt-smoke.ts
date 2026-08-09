@@ -6,6 +6,10 @@ process.env.ECONT_MODE = 'fixture'
 delete process.env.ECONT_FIXTURE_FAULT
 
 import { invalidate } from '../lib/econt/cache.ts'
+import {
+  assertSenderConfigured,
+  getEcontConfig,
+} from '../lib/econt/config.ts'
 import { canFitInAps } from '../lib/econt/constraints.ts'
 import { isEcontError, toUserMessageBg } from '../lib/econt/errors.ts'
 import {
@@ -291,6 +295,77 @@ async function main(): Promise<void> {
     (await getCities()).length > 0,
     'a rejection must not poison the cache for the next request',
   )
+
+  // --- Sender config must not gate nomenclatures -----------------------------
+  // Regression guard for a circular-configuration bug: sender validation used to
+  // run on every call, so getOffices() refused to work until the sender's own
+  // office code was set — which is the thing you need getOffices() to find.
+  process.env.ECONT_MODE = 'live'
+  process.env.ECONT_BASE_URL = 'https://ee.econt.com/services'
+  process.env.ECONT_USERNAME = 'u'
+  process.env.ECONT_PASSWORD = 'p'
+  for (const key of [
+    'ECONT_SENDER_PHONE',
+    'ECONT_SENDER_CITY_NAME',
+    'ECONT_SENDER_CITY_POST_CODE',
+    'ECONT_SENDER_OFFICE_CODE',
+    'ECONT_SENDER_STREET',
+  ]) {
+    delete process.env[key]
+  }
+
+  // Credentials alone are enough to read the nomenclature...
+  assert.doesNotThrow(() => getEcontConfig())
+
+  // ...but a shipment still refuses to be priced without a sender, and says
+  // which variables are missing.
+  assert.throws(
+    () => assertSenderConfigured(getEcontConfig()),
+    (err: unknown) => {
+      assert.ok(isEcontError(err) && err.kind === 'config')
+      const missing = (err.detail as { missing: string[] }).missing
+      assert.deepEqual(missing, [
+        'ECONT_SENDER_PHONE',
+        'ECONT_SENDER_CITY_NAME',
+        'ECONT_SENDER_CITY_POST_CODE',
+        'ECONT_SENDER_OFFICE_CODE or ECONT_SENDER_STREET',
+      ])
+      return true
+    },
+  )
+
+  // Either dispatch method satisfies it, and neither is required by the other.
+  process.env.ECONT_SENDER_PHONE = '+359885147348'
+  process.env.ECONT_SENDER_CITY_NAME = 'Благоевград'
+  process.env.ECONT_SENDER_CITY_POST_CODE = '2700'
+  process.env.ECONT_SENDER_OFFICE_CODE = '2710'
+  assert.doesNotThrow(() => assertSenderConfigured(getEcontConfig()))
+
+  delete process.env.ECONT_SENDER_OFFICE_CODE
+  process.env.ECONT_SENDER_STREET = 'ул. Тодор Александров'
+  assert.doesNotThrow(() => assertSenderConfigured(getEcontConfig()))
+
+  // Missing credentials are still caught on every call, not just shipments.
+  delete process.env.ECONT_PASSWORD
+  assert.throws(
+    () => getEcontConfig(),
+    (err: unknown) => {
+      assert.ok(isEcontError(err) && err.kind === 'config')
+      assert.deepEqual((err.detail as { missing: string[] }).missing, [
+        'ECONT_PASSWORD',
+      ])
+      return true
+    },
+  )
+
+  // Fixture mode must keep working with no credentials whatsoever — that is what
+  // keeps a fresh clone and a network-restricted sandbox usable.
+  process.env.ECONT_MODE = 'fixture'
+  delete process.env.ECONT_USERNAME
+  assert.doesNotThrow(() => getEcontConfig())
+  assert.doesNotThrow(() => assertSenderConfigured(getEcontConfig()))
+  invalidate()
+  assert.ok((await getCities()).length > 0)
 
   console.log('econt-smoke: all assertions passed')
 }

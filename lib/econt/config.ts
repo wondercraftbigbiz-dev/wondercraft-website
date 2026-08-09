@@ -64,23 +64,14 @@ export function getEcontConfig(): EcontConfig {
     streetOther: env('ECONT_SENDER_STREET_OTHER') || undefined,
   }
 
+  // Only credentials are checked here, because only credentials are needed by
+  // every call. Sender details are validated separately — see
+  // assertSenderConfigured below.
   if (mode === 'live') {
     const missing: string[] = []
     if (!username) missing.push('ECONT_USERNAME')
     if (!password) missing.push('ECONT_PASSWORD')
-    if (!sender.phone) missing.push('ECONT_SENDER_PHONE')
-    if (!sender.cityName) missing.push('ECONT_SENDER_CITY_NAME')
-    if (!sender.cityPostCode) missing.push('ECONT_SENDER_CITY_POST_CODE')
-    if (!sender.officeCode && !sender.street) {
-      missing.push('ECONT_SENDER_OFFICE_CODE or ECONT_SENDER_STREET')
-    }
-    if (missing.length > 0) {
-      throw new EcontError(
-        'config',
-        `Econt is in live mode but misconfigured: missing ${missing.join(', ')}`,
-        { detail: { missing } },
-      )
-    }
+    if (missing.length > 0) throw misconfigured(missing)
   }
 
   return {
@@ -91,6 +82,40 @@ export function getEcontConfig(): EcontConfig {
     sender,
     fault: parseFault(env('ECONT_FIXTURE_FAULT')),
   }
+}
+
+/**
+ * Validate the sender, which only shipments need.
+ *
+ * Deliberately not part of getEcontConfig(): that runs on every call, including
+ * nomenclature lookups, and folding the sender into it made the configuration
+ * circular — you could not list offices to find your own office code, because
+ * listing offices refused to run until the office code was set. A city list has
+ * no sender, so it should not require one.
+ *
+ * Throws the same EcontError('config') as before, so a misconfigured deploy still
+ * degrades the quote to "we'll confirm by phone" rather than breaking the picker.
+ */
+export function assertSenderConfigured(config: EcontConfig): void {
+  if (config.mode !== 'live') return
+
+  const { sender } = config
+  const missing: string[] = []
+  if (!sender.phone) missing.push('ECONT_SENDER_PHONE')
+  if (!sender.cityName) missing.push('ECONT_SENDER_CITY_NAME')
+  if (!sender.cityPostCode) missing.push('ECONT_SENDER_CITY_POST_CODE')
+  if (!sender.officeCode && !sender.street) {
+    missing.push('ECONT_SENDER_OFFICE_CODE or ECONT_SENDER_STREET')
+  }
+  if (missing.length > 0) throw misconfigured(missing)
+}
+
+function misconfigured(missing: string[]): EcontError {
+  return new EcontError(
+    'config',
+    `Econt is in live mode but misconfigured: missing ${missing.join(', ')}`,
+    { detail: { missing } },
+  )
 }
 
 function parseFault(raw: string): EcontFault {

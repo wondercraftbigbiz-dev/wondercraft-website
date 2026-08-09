@@ -3,7 +3,7 @@ import 'server-only'
 import { isParcelConfigured, type Plan } from '@/lib/data/pricing'
 import { bgn, eur, toBgn, type Money } from '@/lib/money'
 import { econtPost } from './client'
-import { getEcontConfig, type EcontSender } from './config'
+import { assertSenderConfigured, getEcontConfig, type EcontSender } from './config'
 import { canFitInAps } from './constraints'
 import { TTL, memoTtl } from './cache'
 import { EcontError } from './errors'
@@ -61,6 +61,10 @@ export async function calculateShipping(input: QuoteInput): Promise<ShippingQuot
   }
 
   const config = getEcontConfig()
+  // A shipment needs a sender; nomenclature lookups do not, which is why this
+  // check lives here rather than in getEcontConfig().
+  assertSenderConfigured(config)
+
   const label = buildLabel(input, config.sender)
   const quoteId = quoteKeyFor(input)
 

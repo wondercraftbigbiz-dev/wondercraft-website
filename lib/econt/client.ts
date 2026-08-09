@@ -75,10 +75,21 @@ async function livePost<TReq extends object, TRes>(
   const text = await res.text()
 
   if (res.status === 401 || res.status === 403) {
-    logCall({ path, status: res.status, kind: 'auth', durationMs })
-    throw new EcontError('auth', 'Econt rejected our credentials', {
-      detail: truncate(text),
-    })
+    // Distinguish Econt rejecting our credentials from something in between
+    // rejecting the request. A corporate proxy, a WAF, or an egress allowlist
+    // answers 403 too, and calling that an auth failure sends whoever is
+    // debugging it hunting for a bad password. Econt answers JSON; an
+    // interceptor serving a block page almost never does.
+    const fromEcont = res.status === 401 || looksLikeJson(text)
+    const kind = fromEcont ? 'auth' : 'upstream'
+    logCall({ path, status: res.status, kind, durationMs })
+    throw new EcontError(
+      kind,
+      fromEcont
+        ? 'Econt rejected our credentials'
+        : `Request to Econt was blocked before it arrived (HTTP ${res.status})`,
+      { detail: truncate(text) },
+    )
   }
 
   if (!res.ok) {
@@ -167,6 +178,12 @@ function logCall(entry: {
   console[level](
     JSON.stringify({ evt: 'econt.call', ...entry, ...(entry.kind === 'auth' ? { code: 'ECONT_AUTH_REJECTED' } : {}) }),
   )
+}
+
+/** Cheap check that a body is a JSON document rather than an HTML block page. */
+function looksLikeJson(body: string): boolean {
+  const t = body.trimStart()
+  return t.startsWith('{') || t.startsWith('[')
 }
 
 function truncate(s: string, max = 500): string {
