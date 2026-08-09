@@ -127,5 +127,23 @@ export const fixtureOffices: EcontOffice[] = [
     normalBusinessHoursFrom: '00:00', normalBusinessHoursTo: '23:59', currency: 'BGN',
   },
 
+  // --- Габрово (103): the live API's actual types, which are not ours --------
+  // Production getOffices took the office picker down with "e.trim is not a
+  // function": Econt declares these fields as strings and then sends numbers for
+  // some of them, and nulls where the docs promise a string. Casting is the
+  // point of this record — it is what arrives on the wire, not what types.ts
+  // claims arrives, and the mapping has to survive it.
+  {
+    id: 6001, code: 5311, name: 'Офис Габрово Север', isAPS: false, isMPS: false,
+    phones: [null, 66123456], emails: null,
+    address: {
+      // Inlined rather than via city(): the helper's own signature would reject
+      // the numeric post code this record exists to reproduce.
+      city: { id: 103, name: 'Габрово', nameEn: '', postCode: 5300 },
+      street: 'ул. Априловска', num: 12, quarter: null,
+    },
+    normalBusinessHoursFrom: 830, normalBusinessHoursTo: null, currency: 'BGN',
+  } as unknown as EcontOffice,
+
   // Бабек (501) and Горни Окол (502) get nothing at all — on purpose.
 ]

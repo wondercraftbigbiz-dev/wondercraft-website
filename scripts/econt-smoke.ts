@@ -26,6 +26,7 @@ async function main(): Promise<void> {
   const SOFIA = 41
   const ELIN_PELIN = 420 // automat only
   const BABEK = 501 // no Econt presence at all
+  const GABROVO = 103 // one office, carrying the live API's real field types
 
   // --- Cities -----------------------------------------------------------------
   const cities = await getCities()
@@ -91,6 +92,23 @@ async function main(): Promise<void> {
   assert.equal(automat.hours, 'Нон-стоп')
 
   assert.equal((await getOffices(BABEK)).length, 0, 'Babek must have no offices')
+
+  // Regression: the live nomenclature sends numbers and nulls where types.ts
+  // promises strings, and every DTO field is consumed by .trim()/.localeCompare()
+  // downstream. This exact shape threw "e.trim is not a function" in production
+  // and emptied the office picker for a city that has an office.
+  const mistyped = (await getOffices(GABROVO)).find((o) => o.code === '5311')
+  assert.ok(mistyped, 'a mistyped office must still be offered, not dropped')
+  assert.equal(
+    mistyped.address,
+    'ул. Априловска 12',
+    'a numeric street number must survive, not be dropped',
+  )
+  assert.equal(mistyped.phone, '66123456', 'a null phone must be skipped, not thrown on')
+  assert.equal(mistyped.hours, null, 'half-known hours must degrade to null')
+
+  const gabrovoCity = cities.find((c) => c.id === GABROVO)
+  assert.equal(gabrovoCity?.hasOffice, true)
 
   const found = await findOffice(SOFIA, '1010')
   assert.equal(found?.name, 'Офис Младост 1')

@@ -79,10 +79,10 @@ export function getCityDetails(cityId: number): Promise<CityDetailsResponse> {
 
     return {
       streets: (streets.streets ?? [])
-        .map((s): StreetDto => ({ id: s.id, name: s.name }))
+        .map((s): StreetDto => ({ id: s.id, name: text(s.name) }))
         .sort((a, b) => a.name.localeCompare(b.name, 'bg')),
       quarters: (quarters.quarters ?? [])
-        .map((q): QuarterDto => ({ id: q.id, name: q.name }))
+        .map((q): QuarterDto => ({ id: q.id, name: text(q.name) }))
         .sort((a, b) => a.name.localeCompare(b.name, 'bg')),
     }
   })
@@ -152,10 +152,10 @@ function toCityDto(
 ): CityDto {
   return {
     id: city.id,
-    name: city.name,
-    nameEn: city.nameEn ?? '',
-    postCode: city.postCode ?? '',
-    region: city.regionName ?? '',
+    name: text(city.name),
+    nameEn: text(city.nameEn),
+    postCode: text(city.postCode),
+    region: text(city.regionName),
     hasOffice,
     hasAps,
   }
@@ -163,8 +163,8 @@ function toCityDto(
 
 function toOfficeDto(office: EcontOffice): OfficeDto {
   return {
-    code: office.code,
-    name: office.name,
+    code: text(office.code),
+    name: text(office.name),
     address: flattenAddress(office),
     isAps: Boolean(office.isAPS),
     isMps: Boolean(office.isMPS),
@@ -172,8 +172,27 @@ function toOfficeDto(office: EcontOffice): OfficeDto {
       office.normalBusinessHoursFrom,
       office.normalBusinessHoursTo,
     ),
-    phone: office.phones?.find((p) => p.trim().length > 0) ?? null,
+    phone: (office.phones ?? []).map(text).find((p) => p.length > 0) ?? null,
   }
+}
+
+/**
+ * Coerce whatever Econt sent into a trimmed string.
+ *
+ * The nomenclature is not as typed as `types.ts` claims. Fields declared string
+ * arrive as numbers — post codes and street numbers especially — and a live
+ * getOffices response took the office picker down with "e.trim is not a
+ * function" while the city list beside it worked fine. `null`, numbers and
+ * absent fields all have the same meaning to the UI ("nothing to show"), so they
+ * collapse to '' here rather than being asserted away at the type boundary.
+ *
+ * Every DTO field the browser sees goes through this, so no downstream
+ * .trim()/.localeCompare() can be handed a non-string.
+ */
+function text(v: unknown): string {
+  if (typeof v === 'string') return v.trim()
+  if (typeof v === 'number' && Number.isFinite(v)) return String(v)
+  return ''
 }
 
 /**
@@ -185,17 +204,21 @@ function flattenAddress(office: EcontOffice): string {
   const a = office.address
   if (!a) return ''
 
-  const street = [a.street, a.num].filter(nonEmpty).join(' ')
-  const parts = [street || a.other, a.quarter ? `кв. ${a.quarter}` : '']
-    .filter(nonEmpty)
-    .map((s) => s.trim())
+  // Street numbers arrive as numbers about as often as strings, so every piece
+  // is coerced before it is tested for emptiness — a numeric `num` used to be
+  // dropped here, quietly shipping "ул. Тодор Александров" with no number on it.
+  const quarter = text(a.quarter)
+  const street = [text(a.street), text(a.num)].filter(Boolean).join(' ')
+  const parts = [street || text(a.other), quarter ? `кв. ${quarter}` : ''].filter(
+    Boolean,
+  )
 
-  if (parts.length === 0) return (a.fullAddress ?? '').trim()
+  if (parts.length === 0) return text(a.fullAddress)
   return parts.join(', ')
 }
 
 /** "08:30 – 18:00", or null when Econt gives us nothing usable. */
-function formatHours(from?: string, to?: string): string | null {
+function formatHours(from?: unknown, to?: unknown): string | null {
   const f = trimTime(from)
   const t = trimTime(to)
   if (!f || !t) return null
@@ -204,15 +227,10 @@ function formatHours(from?: string, to?: string): string | null {
   return `${f} – ${t}`
 }
 
-function trimTime(v?: string): string | null {
-  if (!v) return null
-  const m = /^(\d{1,2}):(\d{2})/.exec(v.trim())
+function trimTime(v?: unknown): string | null {
+  const m = /^(\d{1,2}):(\d{2})/.exec(text(v))
   if (!m) return null
   return `${m[1].padStart(2, '0')}:${m[2]}`
-}
-
-function nonEmpty(v: string | undefined | null): v is string {
-  return typeof v === 'string' && v.trim().length > 0
 }
 
 /**
