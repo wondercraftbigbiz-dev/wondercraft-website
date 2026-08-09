@@ -8,9 +8,13 @@ export type ComboboxItem = {
   key: string
   /** What goes in the input once chosen. */
   label: string
-  /** Second line in the dropdown row — region, post code, address. */
+  /**
+   * Second line in the dropdown row — region, address. Shown for
+   * disambiguation, deliberately NOT matched against: typing "соф" should find
+   * София, not every village whose region happens to be София.
+   */
   meta?: string
-  /** Extra text to match against, e.g. a Latin transliteration. */
+  /** Extra text to match against, e.g. a Latin name or a post code. */
   search?: string
 }
 
@@ -298,7 +302,8 @@ export function Combobox({
  *
  * Prefix matches rank above substring matches, which is what makes typing
  * "Вар" put Варна first instead of burying it under every settlement containing
- * those letters. Matching also covers the Latin name, so "sofia" finds София.
+ * those letters. Matching covers the label and the explicit `search` text (a
+ * Latin name, a post code) but never `meta` — see the note on that field.
  */
 function filterItems(
   items: ComboboxItem[],
@@ -321,7 +326,7 @@ function filterItems(
   const substring: ComboboxItem[] = []
 
   for (const item of items) {
-    const haystacks = [item.label, item.search ?? '', item.meta ?? ''].map(normalize)
+    const haystacks = [item.label, item.search ?? ''].map(normalize)
     if (haystacks.some((h) => h.startsWith(q))) prefix.push(item)
     else if (haystacks.some((h) => h.includes(q))) substring.push(item)
   }

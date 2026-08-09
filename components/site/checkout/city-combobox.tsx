@@ -44,8 +44,10 @@ export function CityCombobox({
           (city): ComboboxItem => ({
             key: String(city.id),
             label: city.name,
+            // Region is shown but not searched; the post code is searchable so
+            // "4000" finds Пловдив.
             meta: [city.region, city.postCode].filter(Boolean).join(' · '),
-            search: city.nameEn,
+            search: [city.nameEn, city.postCode].filter(Boolean).join(' '),
           }),
         ),
     [all, deliveryType],

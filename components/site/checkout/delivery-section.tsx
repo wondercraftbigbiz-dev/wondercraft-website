@@ -6,11 +6,12 @@ import { APS_MAX_PARCEL_HINT, type DeliveryType } from '@/lib/econt/dto'
 import { findPlan } from '@/lib/data/pricing'
 import { AlertIcon } from '../icons'
 import { Field } from '../field'
+import { AddressFields } from './address-fields'
 import { CityCombobox } from './city-combobox'
 import { DeliveryTypeSelect } from './delivery-type-select'
 import { OfficePicker } from './office-picker'
 import type { Action, OrderState } from './order-reducer'
-import { useCities, useOffices } from './use-econt-data'
+import { useCities, useCityDetails, useOffices } from './use-econt-data'
 
 /**
  * The delivery half of the order form: where it goes, in Econt's terms.
@@ -28,7 +29,11 @@ export function DeliverySection({
 }) {
   const { delivery, errors } = state
   const cities = useCities(true)
-  const offices = useOffices(delivery.city?.id ?? null)
+  const cityId = delivery.city?.id ?? null
+  // Only fetch what the current mode needs: offices for pickup, streets and
+  // quarters for the door.
+  const offices = useOffices(delivery.type === 'address' ? null : cityId)
+  const cityDetails = useCityDetails(delivery.type === 'address' ? cityId : null)
 
   const plan = findPlan(state.planId)
   const parcel = plan?.parcel
@@ -107,6 +112,15 @@ export function DeliverySection({
         ) : (
           <p className="text-sm text-charcoal-soft">
             Изберете град, за да видите офисите на Еконт.
+          </p>
+        ))}
+
+      {delivery.type === 'address' &&
+        (delivery.city ? (
+          <AddressFields state={state} dispatch={dispatch} details={cityDetails} />
+        ) : (
+          <p className="text-sm text-charcoal-soft">
+            Изберете град, за да въведете адрес.
           </p>
         ))}
 
