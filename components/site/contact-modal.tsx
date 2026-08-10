@@ -4,7 +4,13 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { plans, type Plan } from '@/lib/data/pricing'
 import { CheckIcon, CloseIcon } from './icons'
 
-type Errors = Partial<Record<'name' | 'phone' | 'city' | 'model', string>>
+type Errors = Partial<
+  Record<'name' | 'phone' | 'email' | 'city' | 'model', string>
+>
+
+// Permissive on purpose — catches typos, not exotic-but-valid addresses.
+// The server applies the same check before writing anything.
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 export function ContactModal({
   initialModel,
@@ -19,6 +25,16 @@ export function ContactModal({
   const [model, setModel] = useState<Plan['id']>(initialModel)
   const [errors, setErrors] = useState<Errors>({})
   const [submitted, setSubmitted] = useState(false)
+  const [orderNumber, setOrderNumber] = useState<number | null>(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [submitError, setSubmitError] = useState<string | null>(null)
+  const [marketingConsent, setMarketingConsent] = useState(false)
+
+  // Held in state rather than read from the DOM: these two inputs unmount when
+  // the customer switches away from the custom model, which would otherwise
+  // silently drop whatever they had typed.
+  const [printName, setPrintName] = useState('')
+  const [customization, setCustomization] = useState('')
 
   // Play in on mount, and delay the actual unmount briefly on close so the
   // exit transition (see .modal-backdrop/.modal-sheet in globals.css) can play.
@@ -80,24 +96,70 @@ export function ContactModal({
     return () => document.removeEventListener('keydown', onKeyDown)
   }, [requestClose])
 
-  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
-    const form = e.currentTarget
-    const data = new FormData(form)
+    if (isSubmitting) return
+
+    const data = new FormData(e.currentTarget)
     const next: Errors = {}
 
-    if (!String(data.get('name') ?? '').trim()) next.name = 'Моля, въведете име.'
-    if (!String(data.get('phone') ?? '').trim())
-      next.phone = 'Моля, въведете телефон.'
-    if (!String(data.get('city') ?? '').trim())
-      next.city = 'Моля, въведете град или офис на куриер.'
+    const name = String(data.get('name') ?? '').trim()
+    const phone = String(data.get('phone') ?? '').trim()
+    const email = String(data.get('email') ?? '').trim()
+    const city = String(data.get('city') ?? '').trim()
+
+    if (!name) next.name = 'Моля, въведете име.'
+    if (!phone) next.phone = 'Моля, въведете телефон.'
+    if (!email) next.email = 'Моля, въведете имейл.'
+    else if (!EMAIL_RE.test(email)) next.email = 'Моля, проверете имейла.'
+    if (!city) next.city = 'Моля, въведете град или офис на куриер.'
     if (!String(data.get('model') ?? '').trim())
       next.model = 'Моля, изберете модел.'
 
     setErrors(next)
-    if (Object.keys(next).length === 0) {
-      // Prototype: nothing is sent. Show fake success state.
+    if (Object.keys(next).length > 0) return
+
+    setSubmitError(null)
+    setIsSubmitting(true)
+
+    try {
+      const res = await fetch('/api/orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name,
+          phone,
+          email,
+          city,
+          model,
+          printName: isCustom ? printName : '',
+          customization: isCustom ? customization : '',
+          message: String(data.get('message') ?? '').trim(),
+          marketingConsent,
+          website: String(data.get('website') ?? ''),
+        }),
+      })
+
+      const payload = (await res.json().catch(() => null)) as
+        | { ok: boolean; orderNumber?: number | null; error?: string }
+        | null
+
+      if (!res.ok || !payload?.ok) {
+        setSubmitError(
+          payload?.error ??
+            'Възникна проблем при изпращането. Моля, опитайте отново.',
+        )
+        return
+      }
+
+      setOrderNumber(payload.orderNumber ?? null)
       setSubmitted(true)
+    } catch {
+      setSubmitError(
+        'Няма връзка със сървъра. Моля, проверете интернет връзката си и опитайте отново.',
+      )
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
@@ -145,6 +207,11 @@ export function ContactModal({
               Получихме заявката ви. Ще се свържем с вас възможно най-скоро, за да
               потвърдим поръчката и доставката.
             </p>
+            {orderNumber !== null && (
+              <p className="mt-3 font-sans text-sm font-semibold text-charcoal-soft">
+                Номер на поръчка: #{orderNumber}
+              </p>
+            )}
             <button
               type="button"
               onClick={requestClose}
@@ -179,6 +246,16 @@ export function ContactModal({
                 />
               </Field>
 
+              <Field label="Имейл" error={errors.email}>
+                <input
+                  name="email"
+                  type="email"
+                  autoComplete="email"
+                  inputMode="email"
+                  className="modal-input"
+                />
+              </Field>
+
               <Field label="Град / офис на куриер" error={errors.city}>
                 <input name="city" type="text" className="modal-input" />
               </Field>
@@ -201,12 +278,20 @@ export function ContactModal({
               {isCustom && (
                 <>
                   <Field label="Име за печат">
-                    <input name="printName" type="text" className="modal-input" />
+                    <input
+                      name="printName"
+                      type="text"
+                      value={printName}
+                      onChange={(e) => setPrintName(e.target.value)}
+                      className="modal-input"
+                    />
                   </Field>
                   <Field label="Допълнителна персонализация">
                     <textarea
                       name="customization"
                       rows={2}
+                      value={customization}
+                      onChange={(e) => setCustomization(e.target.value)}
                       className="modal-input resize-none"
                     />
                   </Field>
@@ -220,13 +305,41 @@ export function ContactModal({
                   className="modal-input resize-none"
                 />
               </Field>
+
+              <ConsentCheckbox
+                checked={marketingConsent}
+                onChange={setMarketingConsent}
+              />
+
+              {/* Honeypot. Hidden from people, tempting to bots. */}
+              <div aria-hidden="true" className="honeypot">
+                <label>
+                  Уебсайт
+                  <input
+                    name="website"
+                    type="text"
+                    tabIndex={-1}
+                    autoComplete="off"
+                  />
+                </label>
+              </div>
             </div>
+
+            {submitError && (
+              <p
+                role="alert"
+                className="mt-5 rounded-md border border-salmon-deep bg-salmon/30 px-4 py-3 text-sm font-medium text-charcoal"
+              >
+                {submitError}
+              </p>
+            )}
 
             <button
               type="submit"
-              className="mt-6 inline-flex min-h-11 w-full items-center justify-center rounded-md border border-border-soft bg-salmon px-6 py-3 font-sans text-base font-semibold text-charcoal shadow-soft transition-all duration-200 ease-[cubic-bezier(0.34,1.56,0.64,1)] hover:-translate-y-0.5 hover:scale-[1.02] hover:bg-salmon-hover hover:shadow-soft-lg active:scale-[0.96] active:duration-100"
+              disabled={isSubmitting}
+              className="mt-6 inline-flex min-h-11 w-full items-center justify-center rounded-md border border-border-soft bg-salmon px-6 py-3 font-sans text-base font-semibold text-charcoal shadow-soft transition-all duration-200 ease-[cubic-bezier(0.34,1.56,0.64,1)] hover:-translate-y-0.5 hover:scale-[1.02] hover:bg-salmon-hover hover:shadow-soft-lg active:scale-[0.96] active:duration-100 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0 disabled:hover:scale-100 disabled:hover:bg-salmon disabled:hover:shadow-soft"
             >
-              Поръчай сега
+              {isSubmitting ? 'Изпращане…' : 'Поръчай сега'}
             </button>
             <p className="mt-3 text-center text-sm text-charcoal-soft">
               Ще се свържем с вас, за да потвърдим детайлите.
@@ -251,8 +364,62 @@ export function ContactModal({
           border-color: var(--color-salmon-deep);
         }
         .modal-input::placeholder { color: var(--color-charcoal-soft); }
+
+        /* Off-screen rather than display:none, so bots that skip hidden
+           inputs still fill it in. */
+        .honeypot {
+          position: absolute;
+          left: -9999px;
+          width: 1px;
+          height: 1px;
+          overflow: hidden;
+        }
       `}</style>
     </div>
+  )
+}
+
+// Marketing opt-in. Unticked by default — consent has to be given, not withdrawn.
+// Built from scratch because the codebase has no checkbox primitive; styling
+// mirrors .modal-input so it sits naturally among the other fields.
+function ConsentCheckbox({
+  checked,
+  onChange,
+}: {
+  checked: boolean
+  onChange: (next: boolean) => void
+}) {
+  return (
+    <label className="flex min-h-11 cursor-pointer items-start gap-3 py-1">
+      <input
+        type="checkbox"
+        name="marketingConsent"
+        checked={checked}
+        onChange={(e) => onChange(e.target.checked)}
+        className="peer sr-only"
+      />
+      <span
+        aria-hidden="true"
+        className="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-sm border border-border-soft bg-cream transition-colors duration-150 peer-checked:border-salmon-deep peer-checked:bg-salmon peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-[3px] peer-focus-visible:outline-salmon-deep"
+      >
+        {/* Driven by the prop, not peer-checked: the icon is nested inside this
+            span rather than being a sibling of the input, so a peer variant
+            would never match it. */}
+        <CheckIcon
+          className={`h-3.5 w-3.5 text-charcoal transition-opacity duration-150 ${
+            checked ? 'opacity-100' : 'opacity-0'
+          }`}
+        />
+      </span>
+      <span className="block">
+        <span className="block font-sans text-sm font-semibold text-charcoal">
+          Искам да получавам оферти и новини от Wondercraft
+        </span>
+        <span className="mt-0.5 block font-sans text-sm text-charcoal-soft">
+          Можете да се отпишете по всяко време.
+        </span>
+      </span>
+    </label>
   )
 }
 
