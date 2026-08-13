@@ -320,6 +320,16 @@
   }
 }
 
+/* Bot honeypot. Off-screen rather than display:none, so bots that skip hidden
+   inputs still fill it in. */
+.honeypot {
+  position: absolute;
+  left: -9999px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+
 /* Long-form legal copy. Kept as a scoped block rather than reaching for a
    typography plugin, since these are the only prose pages on the site. */
 .legal-prose p,

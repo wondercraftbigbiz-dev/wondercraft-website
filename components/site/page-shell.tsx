@@ -1,5 +1,5 @@
 import { isMyposConfigured } from '@/lib/mypos/config'
-import { isSupabaseConfigured } from '@/lib/supabase/admin'
+import { isSupabaseConfigured } from '@/lib/supabase/server'
 import { BackToTop } from './back-to-top'
 import { Footer } from './footer'
 import { Header } from './header'

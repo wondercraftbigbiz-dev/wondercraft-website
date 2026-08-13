@@ -1,5 +1,5 @@
 import { isMyposConfigured } from '@/lib/mypos/config'
-import { isSupabaseConfigured } from '@/lib/supabase/admin'
+import { isSupabaseConfigured } from '@/lib/supabase/server'
 
 /**
  * Whether card payment can be offered right now.

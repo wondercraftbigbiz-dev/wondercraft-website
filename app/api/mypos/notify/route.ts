@@ -1,6 +1,6 @@
 import { getMyposConfig } from '@/lib/mypos/config'
 import { parseNotification, readNotificationDetails } from '@/lib/mypos/parse-notify'
-import { getSupabaseAdmin, isSupabaseConfigured } from '@/lib/supabase/admin'
+import { getSupabaseAdmin, isSupabaseConfigured } from '@/lib/supabase/server'
 
 /**
  * myPOS IPCPurchaseNotify endpoint (URL_Notify).

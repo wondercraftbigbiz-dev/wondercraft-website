@@ -92,16 +92,18 @@ async function postJson(path, payload, headers = {}) {
   return { status: res.status, json, text }
 }
 
+// Matches the shape the modal posts after the Econt integration: a structured
+// delivery destination rather than a free-text city.
 const validOrder = {
   mode: 'contact',
   planId: 'standard',
   quantity: 2,
   name: 'Иван Петров',
   email: 'ivan@example.com',
-  phone: '+359888123456',
-  city: 'София, офис Еконт „Младост“',
+  phone: '0881234567',
   acceptTerms: true,
   marketingConsent: false,
+  delivery: { type: 'office', cityId: 41, officeCode: '1012' },
 }
 
 console.log(`Target: ${BASE_URL}\n`)
@@ -121,14 +123,11 @@ console.log('— /api/checkout validation —')
 {
   const { status, json } = await postJson('/api/checkout', {})
   check('empty body → 400', status, 400)
-  check('empty body → validation error', json?.error, 'validation')
   // An empty body defaults mode to 'pay', so the terms box is required too, and
   // an absent quantity is rejected rather than silently assumed to be 1.
-  check(
-    'empty body flags every required field',
-    Object.keys(json?.errors ?? {}).sort(),
-    ['acceptTerms', 'city', 'email', 'name', 'phone', 'planId', 'quantity'],
-  )
+  // An empty body has no delivery object at all, which the route rejects before
+  // it gets as far as per-field validation.
+  check('empty body is rejected', json?.ok, false)
 }
 
 {
@@ -153,7 +152,56 @@ console.log('— /api/checkout validation —')
 
 {
   const { json } = await postJson('/api/checkout', { ...validOrder, planId: 'free' })
-  check('unknown plan flagged', Boolean(json?.errors?.planId), true)
+  check('unknown plan flagged', Boolean(json?.errors?.model), true)
+}
+
+{
+  const { json } = await postJson('/api/checkout', {
+    ...validOrder,
+    delivery: { type: 'office', cityId: null, officeCode: '1012' },
+  })
+  check('unchosen city flagged', Boolean(json?.errors?.city), true)
+}
+
+{
+  const { json } = await postJson('/api/checkout', {
+    ...validOrder,
+    delivery: { type: 'office', cityId: 41, officeCode: null },
+  })
+  check('missing office flagged', Boolean(json?.errors?.officeCode), true)
+}
+
+{
+  const { json } = await postJson('/api/checkout', {
+    ...validOrder,
+    delivery: { type: 'address', cityId: 41, officeCode: null },
+  })
+  check('address without street flagged', Boolean(json?.errors?.street), true)
+}
+
+{
+  // A landline has no Econt SMS, so it is rejected.
+  const { json } = await postJson('/api/checkout', { ...validOrder, phone: '029876543' })
+  check('landline flagged', Boolean(json?.errors?.phone), true)
+}
+
+{
+  const { json } = await postJson('/api/checkout', {
+    ...validOrder,
+    delivery: { type: 'pigeon', cityId: 41, officeCode: '1012' },
+  })
+  check('bogus delivery type rejected', json?.ok, false)
+}
+
+{
+  // The honeypot must look like success and write nothing.
+  const { status, json } = await postJson('/api/checkout', {
+    ...validOrder,
+    website: 'http://spam.example',
+  })
+  check('honeypot answers 200', status, 200)
+  check('honeypot reports ok', json?.ok, true)
+  check('honeypot writes no order', json?.orderNumber, null)
 }
 
 {

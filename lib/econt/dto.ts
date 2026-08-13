@@ -79,6 +79,13 @@ export type DeliveryDto = {
 export type QuoteRequest = {
   planId: string
   delivery: DeliveryDto
+  /**
+   * How many houses. Defaults to 1 when absent.
+   *
+   * Only affects the internal cost estimate — delivery is free to the customer,
+   * so this never changes what they are charged.
+   */
+  quantity?: number
 }
 
 export type QuoteOk = {
@@ -105,7 +112,19 @@ export type OrderOk = {
   ok: true
   orderRef: string
   total: MoneyDto
+  /** Null while delivery is free — kept so a paid-delivery future needs no DTO change. */
   shipping: MoneyDto | null
+  /** Order number for the customer to quote on the phone. */
+  orderNumber?: number | null
+  /**
+   * Card path only. The browser must POST these fields as an HTML form to
+   * `action` — myPOS Checkout accepts a purchase no other way. Absent for the
+   * "call me back" path, which is finished the moment this response arrives.
+   */
+  payment?: {
+    action: string
+    fields: Record<string, string>
+  }
 }
 
 export type OrderFailed = {

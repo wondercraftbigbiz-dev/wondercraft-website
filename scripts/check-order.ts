@@ -4,6 +4,7 @@
 
 import assert from 'node:assert/strict'
 import { VCity, vCity } from '../lib/bg.ts'
+import { MAX_QUANTITY } from '../lib/data/pricing.ts'
 import {
   LIMITS,
   hasErrors,
@@ -44,7 +45,13 @@ for (const raw of [
 }
 
 // --- Contact ----------------------------------------------------------------
-const goodContact = { name: 'Иван Петров', phone: '0881234567', planId: 'standard' }
+const goodContact = {
+  name: 'Иван Петров',
+  phone: '0881234567',
+  email: 'ivan@example.com',
+  planId: 'standard',
+  quantity: 1,
+}
 assert.equal(hasErrors(validateContact(goodContact)), false)
 
 assert.match(validateContact({ ...goodContact, name: '' }).name!, /въведете име/)
@@ -58,6 +65,59 @@ assert.match(
 assert.match(validateContact({ ...goodContact, phone: '' }).phone!, /въведете телефон/)
 assert.match(validateContact({ ...goodContact, phone: '029876543' }).phone!, /мобилен/)
 assert.match(validateContact({ ...goodContact, planId: 'nope' }).model!, /изберете модел/)
+
+// Email: required, because customers.email is NOT NULL and the confirmation
+// goes there. Permissive on shape — it catches typos, not exotic addresses.
+assert.match(validateContact({ ...goodContact, email: '' }).email!, /въведете имейл/)
+assert.match(validateContact({ ...goodContact, email: '   ' }).email!, /въведете имейл/)
+for (const bad of ['ivan', 'ivan@', '@example.com', 'ivan@example', 'a b@c.com']) {
+  assert.ok(
+    validateContact({ ...goodContact, email: bad }).email,
+    `should have rejected email ${bad}`,
+  )
+}
+for (const good of ['a@b.co', 'ivan.petrov+tag@sub.example.com']) {
+  assert.equal(
+    validateContact({ ...goodContact, email: good }).email,
+    undefined,
+    `should have accepted email ${good}`,
+  )
+}
+assert.match(
+  validateContact({ ...goodContact, email: `${'a'.repeat(250)}@b.co` }).email!,
+  /до 254 символа/,
+)
+
+// Quantity: an integer within range. Anything else is a tampered or broken
+// client, and the total is computed from it server-side.
+for (const bad of [0, -1, 1.5, Number.NaN, MAX_QUANTITY + 1]) {
+  assert.ok(
+    validateContact({ ...goodContact, quantity: bad }).quantity,
+    `should have rejected quantity ${bad}`,
+  )
+}
+for (const good of [1, 2, MAX_QUANTITY]) {
+  assert.equal(
+    validateContact({ ...goodContact, quantity: good }).quantity,
+    undefined,
+    `should have accepted quantity ${good}`,
+  )
+}
+
+// The distance-selling agreement is required only on the card path.
+assert.match(
+  validateContact({ ...goodContact, mode: 'pay', acceptTerms: false }).acceptTerms!,
+  /общите условия/,
+)
+assert.equal(
+  validateContact({ ...goodContact, mode: 'pay', acceptTerms: true }).acceptTerms,
+  undefined,
+)
+assert.equal(
+  validateContact({ ...goodContact, mode: 'contact', acceptTerms: false }).acceptTerms,
+  undefined,
+  'the call-me-back path must not demand the terms box',
+)
 
 assert.match(
   validateContact({ ...goodContact, printName: 'а'.repeat(31) }).printName!,
@@ -116,6 +176,25 @@ assert.equal(ok.value.name, 'Иван Петров')
 assert.equal(ok.value.planId, 'standard')
 assert.equal(ok.value.printName, null, 'blank optional fields normalize to null')
 assert.equal(ok.value.delivery.cityId, 41)
+assert.equal(ok.value.email, 'ivan@example.com', 'email must come back lowercased')
+assert.equal(
+  validateOrder({
+    ...goodContact,
+    email: '  IVAN@Example.COM ',
+    delivery: office,
+  }).value?.email,
+  'ivan@example.com',
+)
+assert.equal(ok.value.quantity, 1)
+// Mode defaults to the non-charging path when absent, so a malformed request can
+// never accidentally be treated as authorised to take a payment.
+assert.equal(ok.value.mode, 'contact')
+assert.equal(
+  validateOrder({ ...goodContact, mode: 'pay', acceptTerms: true, delivery: office })
+    .value?.mode,
+  'pay',
+)
+assert.equal(ok.value.marketingConsent, false, 'consent must be opt-in')
 
 // Whitespace-only optional fields are null, not empty strings.
 const trimmed = validateOrder({
