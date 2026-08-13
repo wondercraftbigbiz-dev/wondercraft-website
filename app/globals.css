@@ -258,35 +258,66 @@
   transform: translateY(0) scale(1);
 }
 
-/* Form controls inside the checkout modal. 16px font-size is deliberate — it
-   stops iOS Safari zooming the viewport when a field is focused. */
-.modal-input {
-  width: 100%;
-  border: 1px solid var(--color-border-soft);
-  border-radius: var(--radius-md);
-  background: var(--color-cream);
-  color: var(--color-charcoal);
-  padding: 0.625rem 0.75rem;
-  font-size: 16px;
-  font-family: var(--font-sans);
-  transition:
-    border-color 150ms ease-out,
-    box-shadow 150ms ease-out;
-}
-.modal-input:focus-visible {
-  border-color: var(--color-salmon-deep);
-  outline: none;
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-salmon-deep) 25%, transparent);
-}
-.modal-input::placeholder {
-  color: var(--color-charcoal-soft);
-}
-.modal-input[aria-invalid='true'] {
-  border-color: var(--color-salmon-deep);
-}
-.modal-input:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
+/* Form controls inside the modal. Lived in an inline <style> in
+   contact-modal.tsx until the checkout grew a second consumer.
+ *
+ * Must be in @layer components, not unlayered: unlayered CSS outranks every
+ * layer, so the `padding` shorthand here would beat Tailwind's pl-9/pr-9 and
+ * the combobox chevron and search icons would sit on top of the text. Inside
+ * `components`, the `utilities` layer wins, which is what utilities are for. */
+@layer components {
+  .modal-input {
+    width: 100%;
+    border: 1px solid var(--color-border-soft);
+    border-radius: var(--radius-md);
+    background: var(--color-cream);
+    color: var(--color-charcoal);
+    padding: 0.625rem 0.75rem;
+    /* 16px exactly: anything smaller makes iOS Safari zoom on focus. */
+    font-size: 16px;
+    font-family: var(--font-sans);
+    transition: border-color 150ms ease-out;
+  }
+  .modal-input:focus-visible {
+    border-color: var(--color-salmon-deep);
+  }
+  .modal-input::placeholder {
+    color: var(--color-charcoal-soft);
+  }
+  .modal-input[aria-invalid='true'] {
+    border-color: var(--color-salmon-deep);
+  }
+  /* Dimmed while the form is disabled mid-submit. */
+  .modal-input:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  /* Checkbox tuned to the paper palette rather than the browser default blue.
+     In @layer components for the same reason as .modal-input above: unlayered
+     rules would outrank Tailwind's sizing utilities on the element. */
+  .modal-checkbox {
+    appearance: none;
+    flex-shrink: 0;
+    width: 1.15rem;
+    height: 1.15rem;
+    margin-top: 0.1rem;
+    border: 1px solid var(--color-border-soft-strong);
+    border-radius: 6px;
+    background: var(--color-cream);
+    cursor: pointer;
+    transition:
+      background-color 150ms ease-out,
+      border-color 150ms ease-out;
+  }
+  .modal-checkbox:checked {
+    background-color: var(--color-salmon-deep);
+    border-color: var(--color-salmon-deep);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%23222222' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 8.5l3.5 3.5L13 4.5'/%3E%3C/svg%3E");
+    background-size: 100%;
+    background-position: center;
+    background-repeat: no-repeat;
+  }
 }
 
 /* Long-form legal copy. Kept as a scoped block rather than reaching for a
@@ -323,35 +354,6 @@
 }
 .legal-prose a:hover {
   color: var(--color-salmon-deep);
-}
-
-/* Checkbox tuned to the paper palette rather than the browser default blue. */
-.modal-checkbox {
-  appearance: none;
-  flex-shrink: 0;
-  width: 1.15rem;
-  height: 1.15rem;
-  margin-top: 0.1rem;
-  border: 1px solid var(--color-border-soft-strong);
-  border-radius: 6px;
-  background: var(--color-cream);
-  cursor: pointer;
-  transition:
-    background-color 150ms ease-out,
-    border-color 150ms ease-out;
-}
-.modal-checkbox:checked {
-  background-color: var(--color-salmon-deep);
-  border-color: var(--color-salmon-deep);
-  /* Tick drawn as a mask so it inherits the paper palette. */
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%23222222' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 8.5l3.5 3.5L13 4.5'/%3E%3C/svg%3E");
-  background-size: 100%;
-  background-position: center;
-  background-repeat: no-repeat;
-}
-.modal-checkbox:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-salmon-deep) 25%, transparent);
 }
 
 @media (prefers-reduced-motion: reduce) {
