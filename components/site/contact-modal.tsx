@@ -1,194 +1,193 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { plans, type Plan } from '@/lib/data/pricing'
-import { CheckIcon, CloseIcon } from './icons'
-
-type Errors = Partial<Record<'name' | 'phone' | 'city' | 'model', string>>
+import { useEffect, useReducer, useRef } from 'react'
+import { plans, type PlanId } from '@/lib/data/pricing'
+import {
+  LIMITS,
+  hasErrors,
+  validateContact,
+  validateDelivery,
+} from '@/lib/order/schema'
+import type { OrderResponse } from '@/lib/econt/dto'
+import { findPlan } from '@/lib/data/pricing'
+import { DeliverySection } from './checkout/delivery-section'
+import { OrderSummary } from './checkout/order-summary'
+import { useShippingQuote } from './checkout/use-shipping-quote'
+import {
+  initialOrderState,
+  orderReducer,
+  toOrderDraft,
+} from './checkout/order-reducer'
+import { AlertIcon, CheckIcon, SpinnerIcon } from './icons'
+import { Field } from './field'
+import { ModalShell, useModalShell } from './modal-shell'
 
 export function ContactModal({
   initialModel,
   onClose,
 }: {
-  initialModel: Plan['id']
+  initialModel: PlanId
   onClose: () => void
 }) {
-  const dialogRef = useRef<HTMLDivElement>(null)
   const firstFieldRef = useRef<HTMLInputElement>(null)
+  const [state, dispatch] = useReducer(orderReducer, initialModel, initialOrderState)
 
-  const [model, setModel] = useState<Plan['id']>(initialModel)
-  const [errors, setErrors] = useState<Errors>({})
-  const [submitted, setSubmitted] = useState(false)
+  const { errors, planId } = state
+  const isCustom = planId === 'custom'
+  const submitted = state.submit.status === 'done'
+  const submitting = state.submit.status === 'submitting'
+  const plan = findPlan(planId)
 
-  // Play in on mount, and delay the actual unmount briefly on close so the
-  // exit transition (see .modal-backdrop/.modal-sheet in globals.css) can play.
-  const [isVisible, setIsVisible] = useState(false)
-  const [isClosing, setIsClosing] = useState(false)
-
-  useEffect(() => {
-    const raf = requestAnimationFrame(() => setIsVisible(true))
-    return () => cancelAnimationFrame(raf)
-  }, [])
-
-  const requestClose = useCallback(() => {
-    setIsClosing(true)
-    setIsVisible(false)
-    window.setTimeout(onClose, 200)
-  }, [onClose])
-
-  const isCustom = model === 'custom'
-
-  // Lock body scroll while open.
-  useEffect(() => {
-    const prev = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-    return () => {
-      document.body.style.overflow = prev
-    }
-  }, [])
+  useShippingQuote(state, dispatch)
 
   // Move focus into the dialog on open.
   useEffect(() => {
     firstFieldRef.current?.focus()
   }, [])
 
-  // Escape to close + focus trap.
-  useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        e.preventDefault()
-        requestClose()
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    if (submitting) return
+
+    const draft = toOrderDraft(state)
+    const next = { ...validateContact(draft), ...validateDelivery(draft.delivery) }
+    dispatch({ type: 'setErrors', errors: next })
+    if (hasErrors(next)) return
+
+    dispatch({ type: 'submitStart' })
+    try {
+      const res = await fetch('/api/order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(draft),
+      })
+      const body = (await res.json()) as OrderResponse
+
+      if (body.ok) {
+        dispatch({ type: 'submitOk', orderRef: body.orderRef })
         return
       }
-      if (e.key === 'Tab') {
-        const focusables = dialogRef.current?.querySelectorAll<HTMLElement>(
-          'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
-        )
-        if (!focusables || focusables.length === 0) return
-        const first = focusables[0]
-        const last = focusables[focusables.length - 1]
-        if (e.shiftKey && document.activeElement === first) {
-          e.preventDefault()
-          last.focus()
-        } else if (!e.shiftKey && document.activeElement === last) {
-          e.preventDefault()
-          first.focus()
-        }
+
+      // The server re-runs the same validator, so its field errors render
+      // through exactly the same error record as the client's own.
+      if (body.errors) dispatch({ type: 'setErrors', errors: body.errors })
+      else if (body.field) {
+        dispatch({ type: 'setErrors', errors: { [body.field]: body.message } as never })
       }
-    }
-    document.addEventListener('keydown', onKeyDown)
-    return () => document.removeEventListener('keydown', onKeyDown)
-  }, [requestClose])
-
-  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault()
-    const form = e.currentTarget
-    const data = new FormData(form)
-    const next: Errors = {}
-
-    if (!String(data.get('name') ?? '').trim()) next.name = 'Моля, въведете име.'
-    if (!String(data.get('phone') ?? '').trim())
-      next.phone = 'Моля, въведете телефон.'
-    if (!String(data.get('city') ?? '').trim())
-      next.city = 'Моля, въведете град или офис на куриер.'
-    if (!String(data.get('model') ?? '').trim())
-      next.model = 'Моля, изберете модел.'
-
-    setErrors(next)
-    if (Object.keys(next).length === 0) {
-      // Prototype: nothing is sent. Show fake success state.
-      setSubmitted(true)
+      dispatch({ type: 'submitError', message: body.message })
+    } catch {
+      dispatch({
+        type: 'submitError',
+        message:
+          'Нещо се обърка при изпращането. Проверете връзката и опитайте отново.',
+      })
     }
   }
 
   return (
-    <div
-      className={`modal-backdrop fixed inset-0 z-50 flex items-end justify-center overflow-y-auto bg-charcoal/60 p-0 sm:items-center sm:p-5 ${
-        isVisible && !isClosing ? 'is-open' : ''
-      }`}
-      onMouseDown={(e) => {
-        if (e.target === e.currentTarget) requestClose()
-      }}
-    >
-      <div
-        ref={dialogRef}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="modal-title"
-        className={`modal-sheet relative w-full max-w-lg rounded-t-xl border border-border-soft bg-cream shadow-soft-lg sm:rounded-xl ${
-          isVisible && !isClosing ? 'is-open' : ''
-        }`}
-      >
-        <div className="flex items-center justify-between border-b border-border-soft px-6 py-4">
-          <h2
-            id="modal-title"
-            className="font-display text-xl font-semibold text-charcoal"
-          >
-            {submitted ? 'Благодарим ви!' : 'Поръчай сега'}
-          </h2>
-          <button
-            type="button"
-            aria-label="Затвори"
-            onClick={requestClose}
-            className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-border-soft bg-cream text-charcoal"
-          >
-            <CloseIcon className="h-5 w-5" aria-hidden="true" />
-          </button>
-        </div>
-
-        {submitted ? (
-          <div className="px-6 py-10 text-center">
-            <span className="mx-auto inline-flex h-14 w-14 items-center justify-center rounded-full border border-border-soft bg-salmon">
-              <CheckIcon className="h-7 w-7 text-charcoal" aria-hidden="true" />
-            </span>
-            <p className="mt-5 text-pretty text-base leading-relaxed text-charcoal">
-              Получихме заявката ви. Ще се свържем с вас възможно най-скоро, за да
-              потвърдим поръчката и доставката.
-            </p>
+    <ModalShell
+      title={submitted ? 'Благодарим ви!' : 'Поръчай сега'}
+      onClose={onClose}
+      aside={
+        submitted ? undefined : (
+          // Sticky so the total and the button stay in view if the column
+          // itself has to scroll — a quote error adds a paragraph below.
+          <div className="lg:sticky lg:top-0">
+            <OrderSummary
+              productEurCents={plan?.priceEurCents ?? 0}
+              quote={state.quote}
+            />
+            {state.submit.status === 'error' && (
+              <p
+                role="alert"
+                className="mt-4 flex items-start gap-2 rounded-md border border-salmon-deep bg-salmon/25 px-4 py-3 text-sm leading-relaxed text-charcoal"
+              >
+                <AlertIcon className="mt-0.5 h-5 w-5 shrink-0" aria-hidden="true" />
+                {state.submit.message}
+              </p>
+            )}
             <button
-              type="button"
-              onClick={requestClose}
-              className="mt-6 inline-flex min-h-11 items-center justify-center rounded-md border border-border-soft bg-transparent px-6 py-3 font-sans text-base font-semibold text-charcoal"
+              type="submit"
+              form="order-form"
+              disabled={submitting}
+              className="mt-4 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-md border border-border-soft bg-salmon px-6 py-3 font-sans text-base font-semibold text-charcoal shadow-soft transition-all duration-200 ease-[cubic-bezier(0.34,1.56,0.64,1)] hover:-translate-y-0.5 hover:scale-[1.02] hover:bg-salmon-hover hover:shadow-soft-lg active:scale-[0.96] active:duration-100 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0 disabled:hover:scale-100"
             >
-              Затвори
+              {submitting && (
+                <SpinnerIcon className="h-4 w-4 animate-spin" aria-hidden="true" />
+              )}
+              {submitting ? 'Изпращаме…' : 'Поръчай сега'}
             </button>
+            <p className="mt-3 text-center text-sm text-charcoal-soft">
+              Ще се свържем с вас, за да потвърдим детайлите.
+            </p>
           </div>
-        ) : (
-          <form
-            onSubmit={handleSubmit}
-            noValidate
-            className="max-h-[70vh] overflow-y-auto px-6 py-5"
-          >
-            <div className="flex flex-col gap-4">
-              <Field label="Име" error={errors.name}>
+        )
+      }
+    >
+      {submitted ? (
+        <SuccessPanel
+          orderRef={
+            state.submit.status === 'done' ? state.submit.orderRef : ''
+          }
+        />
+      ) : (
+        <form
+          id="order-form"
+          onSubmit={handleSubmit}
+          noValidate
+          // flex-1 covers the stacked layout; the explicit placement is for the
+          // lg grid, where flex sizing no longer applies.
+          className="min-h-0 flex-1 overflow-y-auto px-6 py-5 lg:col-start-1 lg:row-start-2"
+        >
+          <div className="flex flex-col gap-4">
+            <Field label="Име" error={errors.name}>
+              {({ describedBy, hasError }) => (
                 <input
                   ref={firstFieldRef}
                   name="name"
                   type="text"
                   autoComplete="name"
+                  maxLength={LIMITS.name}
                   className="modal-input"
+                  value={state.name}
+                  aria-invalid={hasError || undefined}
+                  aria-describedby={describedBy}
+                  onChange={(e) =>
+                    dispatch({ type: 'setText', field: 'name', value: e.target.value })
+                  }
                 />
-              </Field>
+              )}
+            </Field>
 
-              <Field label="Телефон" error={errors.phone}>
+            <Field label="Телефон" error={errors.phone}>
+              {({ describedBy, hasError }) => (
                 <input
                   name="phone"
                   type="tel"
+                  inputMode="tel"
                   autoComplete="tel"
                   className="modal-input"
+                  value={state.phone}
+                  aria-invalid={hasError || undefined}
+                  aria-describedby={describedBy}
+                  onChange={(e) =>
+                    dispatch({ type: 'setText', field: 'phone', value: e.target.value })
+                  }
                 />
-              </Field>
+              )}
+            </Field>
 
-              <Field label="Град / офис на куриер" error={errors.city}>
-                <input name="city" type="text" className="modal-input" />
-              </Field>
-
-              <Field label="Модел" error={errors.model}>
+            <Field label="Модел" error={errors.model}>
+              {({ describedBy, hasError }) => (
                 <select
                   name="model"
-                  value={model}
-                  onChange={(e) => setModel(e.target.value as Plan['id'])}
                   className="modal-input"
+                  value={planId}
+                  aria-invalid={hasError || undefined}
+                  aria-describedby={describedBy}
+                  onChange={(e) =>
+                    dispatch({ type: 'setPlan', planId: e.target.value as PlanId })
+                  }
                 >
                   {plans.map((p) => (
                     <option key={p.id} value={p.id}>
@@ -196,84 +195,109 @@ export function ContactModal({
                     </option>
                   ))}
                 </select>
-              </Field>
+              )}
+            </Field>
 
-              {isCustom && (
-                <>
-                  <Field label="Име за печат">
-                    <input name="printName" type="text" className="modal-input" />
-                  </Field>
-                  <Field label="Допълнителна персонализация">
+            {isCustom && (
+              <>
+                <Field label="Име за печат" error={errors.printName}>
+                  {({ describedBy, hasError }) => (
+                    <input
+                      name="printName"
+                      type="text"
+                      maxLength={LIMITS.printName}
+                      className="modal-input"
+                      value={state.printName}
+                      aria-invalid={hasError || undefined}
+                      aria-describedby={describedBy}
+                      onChange={(e) =>
+                        dispatch({
+                          type: 'setText',
+                          field: 'printName',
+                          value: e.target.value,
+                        })
+                      }
+                    />
+                  )}
+                </Field>
+                <Field label="Допълнителна персонализация" error={errors.customization}>
+                  {({ describedBy }) => (
                     <textarea
                       name="customization"
                       rows={2}
+                      maxLength={LIMITS.customization}
                       className="modal-input resize-none"
+                      value={state.customization}
+                      aria-describedby={describedBy}
+                      onChange={(e) =>
+                        dispatch({
+                          type: 'setText',
+                          field: 'customization',
+                          value: e.target.value,
+                        })
+                      }
                     />
-                  </Field>
-                </>
-              )}
+                  )}
+                </Field>
+              </>
+            )}
 
-              <Field label="Съобщение (по избор)">
+            <hr className="border-border-soft" />
+
+            <DeliverySection state={state} dispatch={dispatch} />
+
+            <hr className="border-border-soft" />
+
+            <Field label="Съобщение (по избор)" error={errors.message}>
+              {({ describedBy }) => (
                 <textarea
                   name="message"
                   rows={2}
+                  maxLength={LIMITS.message}
                   className="modal-input resize-none"
+                  value={state.message}
+                  aria-describedby={describedBy}
+                  onChange={(e) =>
+                    dispatch({ type: 'setText', field: 'message', value: e.target.value })
+                  }
                 />
-              </Field>
-            </div>
+              )}
+            </Field>
+          </div>
 
-            <button
-              type="submit"
-              className="mt-6 inline-flex min-h-11 w-full items-center justify-center rounded-md border border-border-soft bg-salmon px-6 py-3 font-sans text-base font-semibold text-charcoal shadow-soft transition-all duration-200 ease-[cubic-bezier(0.34,1.56,0.64,1)] hover:-translate-y-0.5 hover:scale-[1.02] hover:bg-salmon-hover hover:shadow-soft-lg active:scale-[0.96] active:duration-100"
-            >
-              Поръчай сега
-            </button>
-            <p className="mt-3 text-center text-sm text-charcoal-soft">
-              Ще се свържем с вас, за да потвърдим детайлите.
-            </p>
-          </form>
-        )}
-      </div>
-
-      <style>{`
-        .modal-input {
-          width: 100%;
-          border: 1px solid var(--color-border-soft);
-          border-radius: var(--radius-md);
-          background: var(--color-cream);
-          color: var(--color-charcoal);
-          padding: 0.625rem 0.75rem;
-          font-size: 16px;
-          font-family: var(--font-sans);
-          transition: border-color 150ms ease-out;
-        }
-        .modal-input:focus-visible {
-          border-color: var(--color-salmon-deep);
-        }
-        .modal-input::placeholder { color: var(--color-charcoal-soft); }
-      `}</style>
-    </div>
+        </form>
+      )}
+    </ModalShell>
   )
 }
 
-function Field({
-  label,
-  error,
-  children,
-}: {
-  label: string
-  error?: string
-  children: React.ReactNode
-}) {
+function SuccessPanel({ orderRef }: { orderRef: string }) {
+  const { requestClose } = useModalShell()
+
   return (
-    <label className="block">
-      <span className="mb-1.5 block font-sans text-sm font-semibold text-charcoal">
-        {label}
+    <div className="px-6 py-10 text-center">
+      <span className="mx-auto inline-flex h-14 w-14 items-center justify-center rounded-full border border-border-soft bg-salmon">
+        <CheckIcon className="h-7 w-7 text-charcoal" aria-hidden="true" />
       </span>
-      {children}
-      {error && (
-        <span className="mt-1 block text-sm font-medium text-salmon-deep">{error}</span>
+      <p className="mt-5 text-pretty text-base leading-relaxed text-charcoal">
+        Получихме заявката ви. Ще се свържем с вас възможно най-скоро, за да
+        потвърдим поръчката и доставката.
+      </p>
+      {orderRef && (
+        <p className="mt-4 text-sm text-charcoal-soft">
+          Номер на поръчката:{' '}
+          <span className="font-sans font-semibold tabular-nums text-charcoal">
+            {orderRef}
+          </span>
+        </p>
       )}
-    </label>
+      <button
+        type="button"
+        onClick={requestClose}
+        className="mt-6 inline-flex min-h-11 items-center justify-center rounded-md border border-border-soft bg-transparent px-6 py-3 font-sans text-base font-semibold text-charcoal"
+      >
+        Затвори
+      </button>
+    </div>
   )
 }
