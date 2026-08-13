@@ -9,7 +9,7 @@ export function Header() {
     <header className="sticky top-0 z-40 border-b border-border-soft bg-cream/95 backdrop-blur-sm">
       <div className="mx-auto flex h-16 w-full max-w-[1120px] items-center justify-between px-5">
         <a
-          href="#hero"
+          href="/#hero"
           className="flex items-center"
           aria-label="Wondercraft Начало"
         >
@@ -28,19 +28,19 @@ export function Header() {
           className="hidden items-center gap-7 md:flex"
         >
           <a
-            href="#pricing"
+            href="/#pricing"
             className="link-underline text-sm font-medium text-charcoal hover:text-salmon-deep"
           >
             Цени
           </a>
           <a
-            href="#assembly"
+            href="/#assembly"
             className="link-underline text-sm font-medium text-charcoal hover:text-salmon-deep"
           >
             Сглобяване
           </a>
           <a
-            href="#faq"
+            href="/#faq"
             className="link-underline text-sm font-medium text-charcoal hover:text-salmon-deep"
           >
             Въпроси
