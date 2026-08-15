@@ -8,10 +8,10 @@ export function Footer() {
         <div>
           <a href="#hero" className="inline-block" aria-label="Wondercraft Начало">
             <Image
-              src="/wondercraft_logo_svg.svg"
-              alt="Wondercraft Logo"
-              width={150}
-              height={40}
+              src="/wondercraft-logo.png"
+              alt=""
+              width={600}
+              height={131}
               className="h-10 w-auto object-contain"
             />
           </a>
