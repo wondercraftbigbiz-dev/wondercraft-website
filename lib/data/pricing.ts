@@ -44,6 +44,33 @@ export function isParcelConfigured(parcel: Parcel = PACKED_PARCEL): boolean {
   )
 }
 
+/**
+ * The parcel for `count` houses shipped together.
+ *
+ * The houses ship flat-packed, so N of them stack rather than travelling as N
+ * separate boxes: weight multiplies, and only the SMALLEST dimension grows —
+ * stacking N flat boxes makes the pile N times thicker while its footprint stays
+ * the same. Multiplying all three dimensions would overstate volumetric weight
+ * roughly N³ and quote a wildly high price.
+ *
+ * Rounded to whole centimetres because Econt prices on whole units.
+ */
+export function stackParcels(parcel: Parcel, count: number): Parcel {
+  if (!Number.isInteger(count) || count < 1) {
+    throw new Error(`stackParcels: count must be a positive integer, got ${count}`)
+  }
+  if (count === 1) return parcel
+
+  const dims: Array<keyof Parcel> = ['lengthCm', 'widthCm', 'heightCm']
+  const thinnest = dims.reduce((min, d) => (parcel[d] < parcel[min] ? d : min), dims[0])
+
+  return {
+    ...parcel,
+    weightKg: Math.round(parcel.weightKg * count * 1000) / 1000,
+    [thinnest]: Math.ceil(parcel[thinnest] * count),
+  }
+}
+
 export type Plan = {
   id: 'standard' | 'custom'
   name: string
@@ -113,6 +140,14 @@ export const startingPrice = {
 export const startingPriceEurCents = 3000
 
 export type PlanId = Plan['id']
+
+/**
+ * Most houses one order may contain.
+ *
+ * A bare constant rather than anything computed, so this file stays importable
+ * by scripts/check-money.ts under bare node (see the header note).
+ */
+export const MAX_QUANTITY = 10
 
 export function findPlan(id: string): Plan | undefined {
   return plans.find((p) => p.id === id)

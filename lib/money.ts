@@ -53,6 +53,27 @@ export function isZero(m: Money): boolean {
   return m.cents === 0
 }
 
+export function multiplyMoney(m: Money, factor: number): Money {
+  if (!Number.isInteger(factor) || factor < 0) {
+    throw new Error(`multiplyMoney: factor must be a non-negative integer, got ${factor}`)
+  }
+  return { cents: m.cents * factor, currency: m.currency }
+}
+
+/**
+ * What the customer is charged: unit price × quantity.
+ *
+ * Delivery is free, so this is the whole total — there is no shipping term. The
+ * checkout route and the myPOS amount both come from here, and mark_order_paid
+ * re-checks the settled amount against the same figure stored on the order.
+ *
+ * Takes the cents rather than a Plan so lib/data/pricing.ts can stay
+ * dependency-free (see the note at the top of that file).
+ */
+export function orderTotal(unitPriceEurCents: number, quantity: number): Money {
+  return multiplyMoney(eur(unitPriceEurCents), quantity)
+}
+
 // Intl.NumberFormat construction is expensive; build each one once.
 const formatters = new Map<string, Intl.NumberFormat>()
 

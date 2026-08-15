@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { findPlan } from '@/lib/data/pricing'
+import { MAX_QUANTITY, findPlan } from '@/lib/data/pricing'
 import { addMoney, eur, toEur, type Money } from '@/lib/money'
 import type { MoneyDto, QuoteRequest, QuoteResponse } from '@/lib/econt/dto'
 import { isDeliveryType } from '@/lib/econt/dto'
@@ -105,6 +105,7 @@ export async function POST(request: Request) {
       plan,
       city,
       office,
+      quantity: normalizeQuantity(body.quantity),
       delivery: {
         type: delivery.type,
         cityId: city.id,
@@ -153,4 +154,11 @@ function json(payload: QuoteResponse): NextResponse {
     status: 200,
     headers: { 'Cache-Control': 'no-store' },
   })
+}
+
+/** Clamp to a sane integer; the parcel maths must never see a fraction. */
+function normalizeQuantity(raw: unknown): number {
+  const n = Number(raw ?? 1)
+  if (!Number.isInteger(n) || n < 1) return 1
+  return Math.min(n, MAX_QUANTITY)
 }

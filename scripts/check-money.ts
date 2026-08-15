@@ -14,13 +14,16 @@ import {
   eur,
   formatDual,
   formatMoney,
+  orderTotal,
   toBgn,
   toEur,
 } from '../lib/money.ts'
 import {
   plans,
+  stackParcels,
   startingPrice,
   startingPriceEurCents,
+  type Parcel,
 } from '../lib/data/pricing.ts'
 
 /**
@@ -97,3 +100,51 @@ assert.equal(money(eur(startingPriceEurCents), true), startingPrice.euro)
 assert.equal(money(toBgn(eur(startingPriceEurCents))), startingPrice.lev)
 
 console.log('check-money: all assertions passed')
+
+// --- Parcel stacking --------------------------------------------------------
+// Houses ship flat-packed, so N of them stack: weight scales, and only the
+// thinnest dimension grows. Scaling all three would overstate volumetric weight
+// by roughly N^3 and quote an absurd delivery price.
+{
+  const box: Parcel = { weightKg: 1.4, lengthCm: 80, widthCm: 60, heightCm: 8 }
+
+  assert.deepEqual(stackParcels(box, 1), box, 'a single parcel is unchanged')
+
+  const three = stackParcels(box, 3)
+  assert.equal(three.weightKg, 4.2, 'weight scales with count')
+  assert.equal(three.heightCm, 24, 'the thinnest dimension is the one that grows')
+  assert.equal(three.lengthCm, 80, 'footprint length is unchanged')
+  assert.equal(three.widthCm, 60, 'footprint width is unchanged')
+
+  // Whichever dimension is thinnest, that is the one that grows.
+  const tall: Parcel = { weightKg: 2, lengthCm: 10, widthCm: 40, heightCm: 50 }
+  const stackedTall = stackParcels(tall, 2)
+  assert.equal(stackedTall.lengthCm, 20)
+  assert.equal(stackedTall.widthCm, 40)
+  assert.equal(stackedTall.heightCm, 50)
+
+  // Volume must grow linearly, not cubically.
+  const vol = (p: Parcel) => p.lengthCm * p.widthCm * p.heightCm
+  assert.equal(vol(three), vol(box) * 3, 'volume is linear in count')
+
+  for (const bad of [0, -1, 2.5]) {
+    assert.throws(() => stackParcels(box, bad), `should reject count ${bad}`)
+  }
+}
+
+// --- Order total ------------------------------------------------------------
+// Delivery is free, so the total is unit x quantity and nothing else.
+{
+  assert.equal(orderTotal(3000, 1).cents, 3000)
+  assert.equal(orderTotal(3000, 3).cents, 9000)
+  assert.equal(orderTotal(4000, 10).cents, 40000)
+  assert.equal(orderTotal(3000, 1).currency, 'EUR')
+  // Integer cents throughout: no float dust at any quantity.
+  for (let q = 1; q <= 10; q += 1) {
+    assert.ok(Number.isInteger(orderTotal(4000, q).cents), `q=${q} must stay integral`)
+  }
+  assert.throws(() => orderTotal(3000, 1.5), 'fractional quantity must throw')
+  assert.throws(() => orderTotal(3000, -1), 'negative quantity must throw')
+}
+
+console.log('check-money: parcel and order-total assertions passed')

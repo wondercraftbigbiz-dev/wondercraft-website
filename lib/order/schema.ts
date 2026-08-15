@@ -9,13 +9,15 @@
 // No React and no server-only imports here, on purpose: both sides run the same
 // code, so a client that skips validation gets the identical messages back.
 
-import { plans, type PlanId } from '@/lib/data/pricing'
+import { MAX_QUANTITY, plans, type PlanId } from '@/lib/data/pricing'
 import { isDeliveryType, type DeliveryType } from '@/lib/econt/dto'
 
 export type OrderErrorField =
   | 'name'
   | 'phone'
+  | 'email'
   | 'model'
+  | 'quantity'
   | 'deliveryType'
   | 'city'
   | 'officeCode'
@@ -24,13 +26,27 @@ export type OrderErrorField =
   | 'printName'
   | 'customization'
   | 'message'
+  | 'acceptTerms'
   /** Not attributable to one field — render as a banner. */
   | 'form'
+
+/**
+ * How the customer wants to finish.
+ *
+ * 'pay' redirects to the myPOS hosted card page; 'contact' records the order and
+ * we phone them. Both write the same row — only payment_status differs.
+ */
+export type CheckoutMode = 'pay' | 'contact'
+
+export function isCheckoutMode(value: unknown): value is CheckoutMode {
+  return value === 'pay' || value === 'contact'
+}
 
 export type OrderErrors = Partial<Record<OrderErrorField, string>>
 
 export const LIMITS = {
   name: 100,
+  email: 254,
   printName: 30,
   street: 120,
   streetNum: 10,
@@ -45,10 +61,17 @@ export const LIMITS = {
 export type ContactDraft = {
   name: string
   phone: string
+  /** Required: customers.email is NOT NULL, and myPOS wants it too. */
+  email: string
   planId: string
+  quantity: number
   printName?: string
   customization?: string
   message?: string
+  /** Distance-selling agreement. Required only when paying by card. */
+  acceptTerms?: boolean
+  marketingConsent?: boolean
+  mode?: CheckoutMode
 }
 
 /** Where it is going, as chosen in the form. */
@@ -81,6 +104,13 @@ export function normalizePhone(raw: string): string | null {
   return national ? `+359${national[1]}` : null
 }
 
+/**
+ * Deliberately permissive: this is where a confirmation email goes, not an
+ * identity check. It rejects the shapes that certainly cannot receive mail and
+ * lets the confirmation itself catch the rest.
+ */
+const EMAIL_RE = /^[^\s@]+@[^\s@.]+(\.[^\s@.]+)+$/
+
 export function validateContact(draft: ContactDraft): OrderErrors {
   const errors: OrderErrors = {}
 
@@ -97,7 +127,26 @@ export function validateContact(draft: ContactDraft): OrderErrors {
     errors.phone =
       'Моля, въведете валиден български мобилен номер, напр. 0881234567.'
 
+  const email = draft.email.trim()
+  if (!email) errors.email = 'Моля, въведете имейл.'
+  else if (email.length > LIMITS.email)
+    errors.email = `Имейлът е до ${LIMITS.email} символа.`
+  else if (!EMAIL_RE.test(email)) errors.email = 'Моля, проверете имейл адреса.'
+
   if (!isPlanId(draft.planId)) errors.model = 'Моля, изберете модел.'
+
+  if (
+    !Number.isInteger(draft.quantity) ||
+    draft.quantity < 1 ||
+    draft.quantity > MAX_QUANTITY
+  ) {
+    errors.quantity = `Моля, изберете количество между 1 и ${MAX_QUANTITY}.`
+  }
+
+  // Only the paying path needs the agreement; the callback path does not.
+  if (draft.mode === 'pay' && draft.acceptTerms !== true) {
+    errors.acceptTerms = 'Моля, приемете общите условия, за да продължите.'
+  }
 
   const printName = (draft.printName ?? '').trim()
   if (printName.length > LIMITS.printName)
@@ -156,10 +205,15 @@ export function validateDelivery(delivery: DeliveryDraft): OrderErrors {
 export type OrderInput = {
   name: string
   phone: string
+  email: string
   planId: PlanId
+  quantity: number
   printName: string | null
   customization: string | null
   message: string | null
+  acceptTerms: boolean
+  marketingConsent: boolean
+  mode: CheckoutMode
   delivery: DeliveryDraft & { cityId: number }
 }
 
@@ -186,10 +240,15 @@ export function validateOrder(
     value: {
       name: draft.name.trim(),
       phone,
+      email: draft.email.trim().toLowerCase(),
       planId: draft.planId,
+      quantity: draft.quantity,
       printName: blankToNull(draft.printName),
       customization: blankToNull(draft.customization),
       message: blankToNull(draft.message),
+      acceptTerms: draft.acceptTerms === true,
+      marketingConsent: draft.marketingConsent === true,
+      mode: isCheckoutMode(draft.mode) ? draft.mode : 'contact',
       delivery: { ...draft.delivery, cityId },
     },
   }

@@ -1,7 +1,13 @@
 import { VCity } from '@/lib/bg'
 import type { CityDto, DeliveryType, MoneyDto } from '@/lib/econt/dto'
 import type { PlanId } from '@/lib/data/pricing'
-import type { OrderDraft, OrderErrorField, OrderErrors } from '@/lib/order/schema'
+import { MAX_QUANTITY } from '@/lib/data/pricing'
+import type {
+  CheckoutMode,
+  OrderDraft,
+  OrderErrorField,
+  OrderErrors,
+} from '@/lib/order/schema'
 
 /**
  * All checkout state in one reducer.
@@ -26,7 +32,13 @@ export type QuoteState =
 
 export type SubmitState =
   | { status: 'idle' }
-  | { status: 'submitting' }
+  | { status: 'submitting'; mode: CheckoutMode }
+  /**
+   * Card path only: the order is recorded and the browser is being handed to the
+   * myPOS page. Terminal from this component's point of view — a full navigation
+   * follows, so nothing should re-enable the form.
+   */
+  | { status: 'redirecting' }
   | { status: 'done'; orderRef: string }
   | { status: 'error'; message: string }
 
@@ -48,10 +60,14 @@ export type DeliveryState = {
 export type OrderState = {
   name: string
   phone: string
+  email: string
   planId: PlanId
+  quantity: number
   printName: string
   customization: string
   message: string
+  acceptTerms: boolean
+  marketingConsent: boolean
   delivery: DeliveryState
   errors: OrderErrors
   /** Non-blocking guidance, e.g. "no office in this city, use an address". */
@@ -63,9 +79,12 @@ export type OrderState = {
 export type TextField =
   | 'name'
   | 'phone'
+  | 'email'
   | 'printName'
   | 'customization'
   | 'message'
+
+export type CheckboxField = 'acceptTerms' | 'marketingConsent'
 
 export type DeliveryTextField =
   | 'cityQuery'
@@ -80,6 +99,8 @@ export type Action =
   | { type: 'setText'; field: TextField; value: string }
   | { type: 'setDeliveryText'; field: DeliveryTextField; value: string }
   | { type: 'setPlan'; planId: PlanId }
+  | { type: 'setQuantity'; value: number }
+  | { type: 'setCheckbox'; field: CheckboxField; value: boolean }
   | { type: 'setDeliveryType'; value: DeliveryType }
   | { type: 'selectCity'; city: CityDto | null }
   | { type: 'selectOffice'; code: string | null }
@@ -95,7 +116,8 @@ export type Action =
       quoteId: string
     }
   | { type: 'quoteError'; message: string }
-  | { type: 'submitStart' }
+  | { type: 'submitStart'; mode: CheckoutMode }
+  | { type: 'submitRedirecting' }
   | { type: 'submitOk'; orderRef: string }
   | { type: 'submitError'; message: string }
 
@@ -105,10 +127,14 @@ export function initialOrderState(planId: PlanId): OrderState {
   return {
     name: '',
     phone: '',
+    email: '',
     planId,
+    quantity: 1,
     printName: '',
     customization: '',
     message: '',
+    acceptTerms: false,
+    marketingConsent: false,
     delivery: {
       type: 'office',
       city: null,
@@ -288,8 +314,35 @@ export function orderReducer(state: OrderState, action: Action): OrderState {
     case 'quoteError':
       return { ...state, quote: { status: 'error', message: action.message } }
 
+    case 'setQuantity': {
+      const value = Math.min(MAX_QUANTITY, Math.max(1, Math.trunc(action.value)))
+      if (value === state.quantity) return state
+      // Quantity changes the parcel, so any delivery price is stale. Harmless
+      // while delivery is free, but keeps the invariant honest if it stops being.
+      return {
+        ...state,
+        quantity: value,
+        quote: IDLE_QUOTE,
+        errors: without(state.errors, 'quantity'),
+      }
+    }
+
+    case 'setCheckbox':
+      return {
+        ...state,
+        [action.field]: action.value,
+        // Only the terms box can carry an error; marketing consent is optional.
+        errors:
+          action.field === 'acceptTerms'
+            ? without(state.errors, 'acceptTerms')
+            : state.errors,
+      }
+
     case 'submitStart':
-      return { ...state, submit: { status: 'submitting' } }
+      return { ...state, submit: { status: 'submitting', mode: action.mode } }
+
+    case 'submitRedirecting':
+      return { ...state, submit: { status: 'redirecting' } }
 
     case 'submitOk':
       return { ...state, submit: { status: 'done', orderRef: action.orderRef } }
@@ -305,7 +358,11 @@ export function toOrderDraft(state: OrderState): OrderDraft {
   return {
     name: state.name,
     phone: state.phone,
+    email: state.email,
     planId: state.planId,
+    quantity: state.quantity,
+    acceptTerms: state.acceptTerms,
+    marketingConsent: state.marketingConsent,
     printName: state.planId === 'custom' ? state.printName : undefined,
     customization: state.planId === 'custom' ? state.customization : undefined,
     message: state.message,
@@ -337,12 +394,13 @@ export function quoteKey(state: OrderState): string | null {
 
   if (d.type === 'office' || d.type === 'aps') {
     if (!d.officeCode) return null
-    return `${state.planId}|${d.city.id}|${d.type}|${d.officeCode}`
+    return `${state.planId}|${state.quantity}|${d.city.id}|${d.type}|${d.officeCode}`
   }
 
   if (!d.street.trim() || !d.streetNum.trim()) return null
   return [
     state.planId,
+    state.quantity,
     d.city.id,
     'address',
     d.street.trim(),

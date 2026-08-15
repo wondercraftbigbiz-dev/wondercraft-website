@@ -22,12 +22,18 @@ const playfair = Playfair_Display({
   display: 'swap',
 })
 
+// Canonical origin. Set NEXT_PUBLIC_SITE_URL to the real domain in production —
+// it is the same value myPOS callback URLs are built from.
+const siteUrl =
+  process.env.NEXT_PUBLIC_SITE_URL?.trim().replace(/\/+$/, '') ||
+  (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000')
+
 export const metadata: Metadata = {
   title: 'Wondercraft — Картонена къщичка за игра | 30 €',
   description:
     'Къщичка за игра от 100% рециклиран картон. Сглобява се за 15 минути без инструменти и се прибира плоско. От 30 € (58,67 лв.).',
   generator: 'v0.app',
-  metadataBase: new URL('https://wondercraft.example'),
+  metadataBase: new URL(siteUrl),
   alternates: {
     canonical: '/',
   },

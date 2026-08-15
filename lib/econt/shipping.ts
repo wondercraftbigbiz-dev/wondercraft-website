@@ -1,6 +1,6 @@
 import 'server-only'
 
-import { isParcelConfigured, type Plan } from '@/lib/data/pricing'
+import { isParcelConfigured, stackParcels, type Plan } from '@/lib/data/pricing'
 import { bgn, eur, toBgn, type Money } from '@/lib/money'
 import { econtPost } from './client'
 import { assertSenderConfigured, getEcontConfig, type EcontSender } from './config'
@@ -30,6 +30,13 @@ export type QuoteInput = {
   delivery: DeliveryDto
   /** Receiver name and phone. Econt requires them even to price a shipment. */
   receiver: { name: string; phone: string }
+  /**
+   * How many houses. Defaults to 1.
+   *
+   * They ship flat-packed and stacked, so this scales the parcel via
+   * stackParcels() rather than becoming a pack count of separate boxes.
+   */
+  quantity?: number
 }
 
 /**
@@ -40,17 +47,19 @@ export type QuoteInput = {
  * plan id. See dto.ts QuoteRequest for why.
  */
 export async function calculateShipping(input: QuoteInput): Promise<ShippingQuote> {
-  const parcel = input.plan.parcel
-
-  if (!isParcelConfigured(parcel)) {
+  // Validate the single-unit parcel: a zero here is a configuration problem, and
+  // scaling zero by any quantity is still zero.
+  if (!isParcelConfigured(input.plan.parcel)) {
     // Sending weight: 0 would quote a price far below the real one and we would
     // silently absorb the difference on every order. Fail loudly instead.
     throw new EcontError(
       'config',
       `Parcel dimensions for plan "${input.plan.id}" are not configured (see PACKED_PARCEL in lib/data/pricing.ts)`,
-      { detail: { parcel } },
+      { detail: { parcel: input.plan.parcel } },
     )
   }
+
+  const parcel = stackParcels(input.plan.parcel, quantityOf(input))
 
   if (input.delivery.type === 'aps' && !canFitInAps(parcel)) {
     throw new EcontError(
@@ -109,18 +118,26 @@ function resolvePrice(response: CreateLabelResponse): Money {
 
 function buildLabel(input: QuoteInput, sender: EcontSender): EcontLabel {
   const { plan, delivery, receiver } = input
+  const quantity = quantityOf(input)
+  const stacked = stackParcels(plan.parcel, quantity)
 
   const label: EcontLabel = {
     senderClient: { name: sender.name, phones: [sender.phone].filter(Boolean) },
     receiverClient: { name: receiver.name, phones: [receiver.phone] },
+    // One physical parcel however many houses are in it — they stack flat.
     packCount: 1,
     shipmentType: 'PACK',
-    weight: plan.parcel.weightKg,
-    shipmentDescription: `${plan.name} (${plan.sku})`,
+    weight: stacked.weightKg,
+    shipmentDescription:
+      quantity > 1
+        ? `${plan.name} (${plan.sku}) × ${quantity}`
+        : `${plan.name} (${plan.sku})`,
     services: {
       // Declared value insures the parcel for what the goods are worth. Not a
       // cash-on-delivery amount — that arrives with payment, in a later phase.
-      declaredValueAmount: round2(toBgn(eur(plan.priceEurCents)).cents / 100),
+      declaredValueAmount: round2(
+        toBgn(eur(plan.priceEurCents * quantity)).cents / 100,
+      ),
       declaredValueCurrency: 'BGN',
       smsNotification: true,
     },
@@ -203,9 +220,11 @@ const BULGARIA = {
  */
 export function quoteKeyFor(input: QuoteInput): string {
   const { plan, city, delivery } = input
+  const quantity = quantityOf(input)
   return [
     plan.id,
-    plan.parcel.weightKg,
+    quantity,
+    stackParcels(plan.parcel, quantity).weightKg,
     city.id,
     delivery.type,
     delivery.officeCode ?? '',
@@ -218,4 +237,10 @@ export function quoteKeyFor(input: QuoteInput): string {
 
 function round2(n: number): number {
   return Math.round(n * 100) / 100
+}
+
+/** Quantity, defaulting to one and never below it. */
+function quantityOf(input: QuoteInput): number {
+  const q = input.quantity ?? 1
+  return Number.isInteger(q) && q > 0 ? q : 1
 }
