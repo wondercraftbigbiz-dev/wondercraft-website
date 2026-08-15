@@ -4,6 +4,7 @@ import { useId, useState } from 'react'
 import { faqItems } from '@/lib/data/faq'
 import { PlusMinusIcon } from './icons'
 import { Section } from './section'
+import { SectionHeading } from './section-heading'
 import { Reveal } from './reveal'
 
 export function Faq() {
@@ -12,14 +13,11 @@ export function Faq() {
 
   return (
     <Section id="faq" labelledBy="faq-heading">
-      <Reveal>
-        <h2
-          id="faq-heading"
-          className="max-w-2xl text-balance font-display text-[28px] font-semibold leading-[1.15] tracking-[-0.015em] text-charcoal md:text-4xl"
-        >
-          Често задавани въпроси
-        </h2>
-      </Reveal>
+      <SectionHeading
+        id="faq-heading"
+        eyebrow="Въпроси"
+        title="Често задавани въпроси"
+      />
 
       <Reveal>
         <ul className="mt-10 flex flex-col gap-3">

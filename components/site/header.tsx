@@ -3,6 +3,15 @@
 import Image from 'next/image'
 import { CtaButton } from './cta-button'
 import { BagIcon } from './icons'
+import { MobileNav, type NavLink } from './mobile-nav'
+
+// Single source for both the desktop row and the mobile disclosure panel, so
+// the two can't drift apart.
+const navLinks: NavLink[] = [
+  { href: '#pricing', label: 'Цени' },
+  { href: '#assembly', label: 'Сглобяване' },
+  { href: '#faq', label: 'Въпроси' },
+]
 
 export function Header() {
   return (
@@ -27,35 +36,30 @@ export function Header() {
           aria-label="Основна навигация"
           className="hidden items-center gap-7 md:flex"
         >
-          <a
-            href="#pricing"
-            className="link-underline text-sm font-medium text-charcoal hover:text-salmon-deep"
-          >
-            Цени
-          </a>
-          <a
-            href="#assembly"
-            className="link-underline text-sm font-medium text-charcoal hover:text-salmon-deep"
-          >
-            Сглобяване
-          </a>
-          <a
-            href="#faq"
-            className="link-underline text-sm font-medium text-charcoal hover:text-salmon-deep"
-          >
-            Въпроси
-          </a>
+          {navLinks.map((link) => (
+            <a
+              key={link.href}
+              href={link.href}
+              className="link-underline text-sm font-medium text-charcoal hover:text-salmon-deep"
+            >
+              {link.label}
+            </a>
+          ))}
         </nav>
 
-        <CtaButton
-          model="standard"
-          className="min-h-11 px-4 py-2 text-base"
-        >
-          <BagIcon className="h-5 w-5" aria-hidden="true" />
-          {/* Full label on wider screens, short label on very small screens */}
-          <span className="hidden min-[400px]:inline">Поръчай сега</span>
-          <span className="min-[400px]:hidden">Поръчай</span>
-        </CtaButton>
+        <div className="flex items-center gap-1">
+          <MobileNav links={navLinks} />
+
+          <CtaButton
+            model="standard"
+            className="min-h-11 px-4 py-2 text-base"
+          >
+            <BagIcon className="h-5 w-5" aria-hidden="true" />
+            {/* Full label on wider screens, short label on very small screens */}
+            <span className="hidden min-[400px]:inline">Поръчай сега</span>
+            <span className="min-[400px]:hidden">Поръчай</span>
+          </CtaButton>
+        </div>
       </div>
     </header>
   )
