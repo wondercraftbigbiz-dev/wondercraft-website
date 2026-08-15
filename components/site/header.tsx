@@ -14,11 +14,11 @@ export function Header() {
           aria-label="Wondercraft Начало"
         >
           <Image
-            src="/wondercraft_logo_svg.svg"
-            alt="Wondercraft Logo"
-            width={220}
-            height={52}
-            className="h-11 w-auto object-contain"
+            src="/wondercraft-logo.png"
+            alt=""
+            width={600}
+            height={131}
+            className="h-9 w-auto object-contain sm:h-11"
             priority
           />
         </a>
