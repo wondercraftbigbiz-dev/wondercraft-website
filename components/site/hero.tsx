@@ -7,7 +7,7 @@ import { Reveal } from './reveal'
 const trustPoints = [
   { Icon: ClockIcon, label: '15 минути монтаж' },
   { Icon: PackageIcon, label: 'Прибира се плоско' },
-  { Icon: ShieldIcon, label: '30 дни връщане' },
+  { Icon: ShieldIcon, label: '14 дни връщане' },
 ]
 
 export function Hero() {
