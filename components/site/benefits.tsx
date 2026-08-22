@@ -1,5 +1,6 @@
 import { ClockIcon, PackageIcon, RecycleIcon } from './icons'
 import { Section } from './section'
+import { SectionHeading } from './section-heading'
 import { Reveal } from './reveal'
 
 const benefits = [
@@ -25,14 +26,10 @@ export function Benefits() {
 
   return (
     <Section id="benefits" labelledBy="benefits-heading">
-      <Reveal>
-        <h2
-          id="benefits-heading"
-          className="max-w-2xl text-balance font-display text-[28px] font-semibold leading-[1.15] tracking-[-0.015em] text-charcoal md:text-4xl"
-        >
-          Направена да улесни живота ви
-        </h2>
-      </Reveal>
+      <SectionHeading
+        id="benefits-heading"
+        title="Направена да улесни живота ви"
+      />
 
       {/* Bento layout: one anchor tile carries more weight than the two
           smaller ones stacked beside it, instead of three equal boxes. */}
@@ -60,7 +57,7 @@ export function Benefits() {
                   aria-hidden="true"
                 />
               </span>
-              <h3 className="mt-4 font-display text-xl font-semibold text-charcoal">
+              <h3 className="mt-4 font-display text-h3 font-semibold text-charcoal">
                 {benefit.title}
               </h3>
               <p className="mt-2 text-base leading-relaxed text-charcoal-soft">

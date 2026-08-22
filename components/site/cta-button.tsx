@@ -29,7 +29,7 @@ export function CtaButton({
       className={cn(
         // Press registers fast (100ms) so it reads as immediate feedback;
         // the release back to rest eases out over the slower 200ms base.
-        'inline-flex min-h-11 items-center justify-center gap-2 rounded-md px-6 py-3 font-sans text-base font-semibold transition-all duration-200 ease-[cubic-bezier(0.34,1.56,0.64,1)] hover:-translate-y-0.5 hover:scale-[1.02] active:translate-y-0 active:scale-[0.96] active:duration-100',
+        'inline-flex min-h-11 items-center justify-center gap-2 rounded-full px-6 py-3 font-sans text-base font-semibold transition-all duration-200 ease-[cubic-bezier(0.34,1.56,0.64,1)] hover:-translate-y-0.5 hover:scale-[1.02] active:translate-y-0 active:scale-[0.96] active:duration-100',
         variant === 'solid' &&
           'border border-border-soft bg-salmon text-charcoal shadow-soft hover:bg-salmon-hover hover:shadow-soft-lg',
         variant === 'outline' &&

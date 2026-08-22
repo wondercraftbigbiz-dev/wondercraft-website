@@ -1,5 +1,6 @@
 import Image from 'next/image'
 import { Section } from './section'
+import { SectionHeading } from './section-heading'
 import { Reveal } from './reveal'
 
 const steps = [
@@ -29,20 +30,14 @@ const steps = [
 export function Assembly() {
   return (
     <Section id="assembly" labelledBy="assembly-heading">
-      <Reveal>
-        <h2
-          id="assembly-heading"
-          className="max-w-2xl text-balance font-display text-[28px] font-semibold leading-[1.15] tracking-[-0.015em] text-charcoal md:text-4xl"
-        >
-          Сглобяването е част от забавата
-        </h2>
-        <p className="mt-3 max-w-xl text-base leading-relaxed text-charcoal-soft">
-          Три прости стъпки и къщичката е готова. Видео ръководството премахва
-          всякакво притеснение.
-        </p>
-      </Reveal>
+      <SectionHeading
+        id="assembly-heading"
+        eyebrow="Сглобяване"
+        title="Сглобяването е част от забавата"
+        lede="Три прости стъпки и къщичката е готова. Видео ръководството премахва всякакво притеснение."
+      />
 
-      <ol className="relative mt-14 grid gap-x-6 gap-y-12 md:grid-cols-3 md:gap-y-0">
+      <ol className="relative mt-10 grid gap-x-6 gap-y-12 md:grid-cols-3 md:gap-y-0">
         {/* Connecting perforation line threading the three steps together —
             replaces the three boxed, identical cards with a single path. */}
         <div
@@ -73,7 +68,7 @@ export function Assembly() {
               />
             </div>
 
-            <h3 className="mt-5 font-display text-xl font-semibold text-charcoal">
+            <h3 className="mt-5 font-display text-h3 font-semibold text-charcoal">
               {step.title}
             </h3>
             <p className="mt-2 max-w-sm text-base leading-relaxed text-charcoal-soft">
