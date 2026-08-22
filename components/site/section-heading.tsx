@@ -44,8 +44,8 @@ export function SectionHeading({
       {eyebrow && (
         <p
           className={cn(
-            'text-eyebrow font-semibold uppercase tracking-[0.14em]',
-            inverse ? 'text-cream/60' : 'text-charcoal-soft',
+            'text-eyebrow font-medium uppercase tracking-[0.14em]',
+            inverse ? 'text-cream/50' : 'text-charcoal-soft/70',
           )}
         >
           {eyebrow}

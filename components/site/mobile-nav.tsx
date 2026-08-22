@@ -45,7 +45,7 @@ export function MobileNav({ links }: { links: NavLink[] }) {
         aria-expanded={open}
         aria-controls={panelId}
         aria-label={open ? 'Затвори менюто' : 'Отвори менюто'}
-        className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-md text-charcoal transition-colors hover:bg-charcoal/5"
+        className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-full text-charcoal transition-colors hover:bg-charcoal/5"
       >
         {open ? (
           <CloseIcon className="h-6 w-6" aria-hidden="true" />

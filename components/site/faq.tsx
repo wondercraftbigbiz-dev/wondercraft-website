@@ -15,7 +15,6 @@ export function Faq() {
     <Section id="faq" labelledBy="faq-heading">
       <SectionHeading
         id="faq-heading"
-        eyebrow="Въпроси"
         title="Често задавани въпроси"
       />
 

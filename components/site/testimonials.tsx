@@ -17,7 +17,6 @@ export function Testimonials() {
     <Section id="testimonials" labelledBy="testimonials-heading">
       <SectionHeading
         id="testimonials-heading"
-        eyebrow="Мнения"
         title="Какво казват родителите"
       />
 
@@ -25,7 +24,7 @@ export function Testimonials() {
         {testimonials.map((t, i) => (
           <Reveal key={t.name} delay={i * 80}>
             <figure
-              className={`card-hover-lift flex h-full flex-col rounded-lg border border-border-soft bg-cream p-6 shadow-soft transition-transform duration-300 ${cardTreatment[i] ?? ''}`}
+              className={`card-hover-lift flex h-full flex-col rounded-lg bg-cream p-6 shadow-soft transition-transform duration-300 ${cardTreatment[i] ?? ''}`}
             >
               <div className="flex gap-1" aria-label="Оценка пет от пет звезди">
                 {Array.from({ length: 5 }).map((_, starIndex) => (

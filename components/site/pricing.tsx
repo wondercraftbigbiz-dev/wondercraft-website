@@ -28,7 +28,7 @@ export function Pricing() {
           <Reveal key={plan.id} delay={i * 80}>
             <TiltCard className="h-full">
               <div
-                className={`card-hover-lift flex h-full flex-col overflow-hidden rounded-lg border border-border-soft bg-cream ${
+                className={`card-hover-lift flex h-full flex-col overflow-hidden rounded-lg bg-cream ${
                   plan.featured ? 'shadow-soft-lg' : 'shadow-soft'
                 }`}
               >
@@ -36,24 +36,13 @@ export function Pricing() {
                 <div className="corrugation h-2.5 w-full bg-kraft" aria-hidden="true" />
 
                 <div className="flex flex-1 flex-col p-6">
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <h3 className="font-display text-h3 font-semibold text-charcoal">
-                        {plan.name}
-                      </h3>
-                      {/* Reserve two lines once the cards sit side by side:
-                          one tagline wraps and the other doesn't, which would
-                          otherwise offset every row below it and break the
-                          comparison the two-card layout exists for. */}
-                      <p className="mt-1 text-sm text-charcoal-soft lg:min-h-[46px]">
-                        {plan.tagline}
-                      </p>
-                    </div>
-                    {plan.featured && (
-                      <span className="shrink-0 rounded-full border border-border-soft-strong bg-salmon px-2.5 py-0.5 text-eyebrow font-semibold uppercase tracking-[0.08em] text-charcoal">
-                        Любим избор
-                      </span>
-                    )}
+                  <div>
+                    <h3 className="font-display text-h3 font-semibold text-charcoal">
+                      {plan.name}
+                    </h3>
+                    <p className="mt-1 text-sm text-charcoal-soft">
+                      {plan.tagline}
+                    </p>
                   </div>
 
                   {/* Product sits on an inset kraft mat rather than bleeding to
@@ -61,7 +50,15 @@ export function Pricing() {
                       what keeps the card short; both photos are shot at 4:5 on a
                       seamless backdrop, so this ratio crops nothing. */}
                   <div className="mx-auto mt-4 w-full max-w-[260px] rounded-lg bg-kraft/40 p-4">
-                    <div className="aspect-[4/5] overflow-hidden rounded-md border border-border-soft bg-cream">
+                    <div className="relative aspect-[4/5] overflow-hidden rounded-md bg-cream">
+                      {/* Sits wholly inside the photo, top-right, over the
+                          empty backdrop above the roofline — straddling the
+                          mat edge would put it on two surfaces at once. */}
+                      {plan.featured && (
+                        <span className="absolute right-2 top-2 z-10 rounded-full bg-salmon px-2.5 py-1 text-eyebrow font-semibold uppercase tracking-[0.08em] text-charcoal">
+                          Любим избор
+                        </span>
+                      )}
                       <Image
                         src={plan.image}
                         alt={plan.imageAlt}

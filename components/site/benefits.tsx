@@ -28,7 +28,6 @@ export function Benefits() {
     <Section id="benefits" labelledBy="benefits-heading">
       <SectionHeading
         id="benefits-heading"
-        eyebrow="Защо Wondercraft"
         title="Направена да улесни живота ви"
       />
 
