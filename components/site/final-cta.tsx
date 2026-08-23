@@ -7,13 +7,13 @@ export function FinalCta() {
     <section
       id="final-cta"
       aria-labelledby="final-cta-heading"
-      className="corrugation border-y border-border-soft bg-kraft px-5 py-16 md:py-24"
+      className="corrugation border-y border-border-soft bg-kraft px-5 py-14 sm:px-6 sm:py-16 md:py-24"
     >
       <div className="mx-auto w-full max-w-[1120px] text-center">
         <Reveal>
           <h2
             id="final-cta-heading"
-            className="mx-auto max-w-2xl text-balance font-display text-[28px] font-bold leading-[1.1] tracking-[-0.015em] text-charcoal md:text-5xl"
+            className="mx-auto max-w-2xl text-balance font-display text-[26px] font-bold leading-[1.1] tracking-[-0.015em] text-charcoal sm:text-[32px] md:text-5xl"
           >
             Подарете час след час игра
           </h2>

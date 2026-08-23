@@ -17,7 +17,7 @@ export function Testimonials() {
       <Reveal>
         <h2
           id="testimonials-heading"
-          className="max-w-2xl text-balance font-display text-[28px] font-semibold leading-[1.15] tracking-[-0.015em] text-charcoal md:text-4xl"
+          className="max-w-2xl text-balance font-display text-[26px] font-semibold leading-[1.15] tracking-[-0.015em] sm:text-[30px] text-charcoal md:text-4xl"
         >
           Какво казват родителите
         </h2>

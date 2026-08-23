@@ -22,7 +22,11 @@ export function Section({
     <section
       id={id}
       aria-labelledby={labelledBy}
-      className={cn('relative px-5 py-14 md:py-24', bandClassName, className)}
+      className={cn(
+        'relative px-5 py-12 sm:px-6 sm:py-14 md:py-24',
+        bandClassName,
+        className,
+      )}
     >
       <div className="mx-auto w-full max-w-[1120px]">{children}</div>
     </section>

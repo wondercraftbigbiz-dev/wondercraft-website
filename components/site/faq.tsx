@@ -15,7 +15,7 @@ export function Faq() {
       <Reveal>
         <h2
           id="faq-heading"
-          className="max-w-2xl text-balance font-display text-[28px] font-semibold leading-[1.15] tracking-[-0.015em] text-charcoal md:text-4xl"
+          className="max-w-2xl text-balance font-display text-[26px] font-semibold leading-[1.15] tracking-[-0.015em] sm:text-[30px] text-charcoal md:text-4xl"
         >
           Често задавани въпроси
         </h2>
@@ -44,7 +44,7 @@ export function Faq() {
                     {item.question}
                     <PlusMinusIcon
                       isOpen={isOpen}
-                      className={`h-5 w-5 ${isOpen ? 'text-salmon-deep' : 'text-charcoal'}`}
+                      className={`h-5 w-5 shrink-0 ${isOpen ? 'text-salmon-deep' : 'text-charcoal'}`}
                     />
                   </button>
                 </h3>

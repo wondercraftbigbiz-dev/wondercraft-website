@@ -12,13 +12,13 @@ export function Metrics() {
     <section
       id="metrics"
       aria-labelledby="metrics-heading"
-      className="corrugation border-y border-border-soft bg-sage px-5 py-14 md:py-20"
+      className="corrugation border-y border-border-soft bg-sage px-5 py-12 sm:px-6 sm:py-14 md:py-20"
     >
       <div className="mx-auto w-full max-w-[1120px]">
         <h2 id="metrics-heading" className="sr-only">
           Числа за Wondercraft
         </h2>
-        <dl className="grid grid-cols-2 gap-8 lg:grid-cols-4">
+        <dl className="grid grid-cols-2 gap-x-5 gap-y-8 sm:gap-8 lg:grid-cols-4">
           {metrics.map((metric, i) => (
             <Reveal
               as="div"

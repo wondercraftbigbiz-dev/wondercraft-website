@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react'
 import { VCity } from '@/lib/bg'
 import type { DeliveryType, OfficeDto } from '@/lib/econt/dto'
-import { ClockIcon, LockerIcon, SearchIcon, StorefrontIcon } from '../icons'
+import { ClockIcon, CloseIcon, LockerIcon, SearchIcon, StorefrontIcon } from '../icons'
 import type { Loadable } from './use-econt-data'
 
 const FILTER_THRESHOLD = 8
@@ -72,7 +72,7 @@ export function OfficePicker({
         <button
           type="button"
           onClick={onSwitchToAddress}
-          className="mt-2 rounded-sm font-sans text-sm font-semibold text-charcoal underline decoration-salmon-deep decoration-2 underline-offset-4"
+          className="-mb-2 mt-1 inline-flex min-h-11 items-center rounded-sm font-sans text-sm font-semibold text-charcoal underline decoration-salmon-deep decoration-2 underline-offset-4"
         >
           Избери доставка до адрес
         </button>
@@ -102,7 +102,7 @@ export function OfficePicker({
         <button
           type="button"
           onClick={() => setExpanded(true)}
-          className="ml-auto shrink-0 rounded-sm px-1 py-0.5 font-sans text-sm font-semibold text-charcoal underline decoration-salmon-deep decoration-2 underline-offset-4 hover:text-charcoal-soft"
+          className="-my-2 ml-auto inline-flex min-h-11 shrink-0 items-center rounded-sm px-2 font-sans text-sm font-semibold text-charcoal underline decoration-salmon-deep decoration-2 underline-offset-4 hover:text-charcoal-soft"
         >
           Промени
         </button>
@@ -120,7 +120,8 @@ export function OfficePicker({
           />
           <input
             type="text"
-            className="modal-input pl-9"
+            className="modal-input pl-9 pr-10"
+            enterKeyHint="search"
             placeholder={`Търсене на ${noun}…`}
             value={filter}
             autoCapitalize="off"
@@ -136,6 +137,18 @@ export function OfficePicker({
               }
             }}
           />
+          {/* Escape clears the box, which is no help without a hardware
+              keyboard. */}
+          {filter && (
+            <button
+              type="button"
+              aria-label="Изчисти търсенето"
+              onClick={() => setFilter('')}
+              className="absolute right-0 top-0 inline-flex h-11 w-10 items-center justify-center rounded-md text-charcoal-soft active:bg-charcoal/5"
+            >
+              <CloseIcon className="h-4 w-4" aria-hidden="true" />
+            </button>
+          )}
         </div>
       )}
 
@@ -143,7 +156,7 @@ export function OfficePicker({
         role="radiogroup"
         aria-label={wantAps ? 'Автомат на Еконт' : 'Офис на Еконт'}
         aria-describedby={describedBy}
-        className="max-h-72 space-y-2 overflow-y-auto overscroll-contain"
+        className="max-h-[min(18rem,42dvh)] space-y-2 overflow-y-auto overscroll-contain"
       >
         {shown.length === 0 && (
           <p className="px-1 py-4 text-center text-sm text-charcoal-soft">

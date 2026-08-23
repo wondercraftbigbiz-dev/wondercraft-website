@@ -37,6 +37,9 @@ export function DeliveryTypeSelect({
 }) {
   const reasons = disabled ?? {}
   const activeReason = reasons[value]
+  const otherReasons = OPTIONS.filter(
+    (o) => o.value !== value && reasons[o.value],
+  ).map((o) => ({ label: o.label, reason: reasons[o.value] as string }))
 
   return (
     <fieldset>
@@ -77,6 +80,19 @@ export function DeliveryTypeSelect({
 
       {activeReason && (
         <p className="mt-1 text-xs text-charcoal-soft">{activeReason}</p>
+      )}
+
+      {/* The title attribute above never surfaces on touch, and a disabled radio
+          does not respond to a tap either, so on a phone an unavailable option
+          simply did nothing and said nothing. */}
+      {otherReasons.length > 0 && (
+        <ul className="mt-1 space-y-0.5">
+          {otherReasons.map(({ label, reason }) => (
+            <li key={label} className="text-xs text-charcoal-soft">
+              {label}: {reason}
+            </li>
+          ))}
+        </ul>
       )}
     </fieldset>
   )
