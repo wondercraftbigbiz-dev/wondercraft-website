@@ -5,7 +5,11 @@ import {
   markOrderRefunded,
   markOrderUnpaid,
 } from '@/lib/order/repository'
-import { getStripeConfig } from '@/lib/payments/config'
+import {
+  getStripeConfig,
+  hasWebhookSecret,
+  isPaymentsConfigured,
+} from '@/lib/payments/config'
 import { getStripe } from '@/lib/payments/stripe'
 import { readChargeRefund, readIntentEvent } from '@/lib/payments/webhook-parse'
 
@@ -29,13 +33,23 @@ export const dynamic = 'force-dynamic'
  * There is no auth beyond the signature, because the signature IS the auth.
  */
 export async function POST(request: Request) {
-  const config = getStripeConfig()
-  if (config.mode !== 'live' || !config.webhookSecret) {
-    // Nothing is listening in this environment. 503 rather than 200 so a
-    // misconfigured deploy shows up in Stripe's dashboard as failing delivery
-    // instead of silently swallowing real payments.
+  if (!isPaymentsConfigured() || !hasWebhookSecret()) {
+    // Nothing here can verify a signature, so nothing here may settle an order.
+    // 503 rather than 200 so a misconfigured deploy shows up in Stripe's
+    // dashboard as failing delivery instead of silently swallowing real
+    // payments — this is the failure that takes money and never records it.
+    console.error(
+      JSON.stringify({
+        evt: 'stripe.webhook.unconfigured',
+        hasKeys: isPaymentsConfigured(),
+        hasWebhookSecret: hasWebhookSecret(),
+        at: new Date().toISOString(),
+      }),
+    )
     return new Response('Stripe is not configured', { status: 503 })
   }
+
+  const config = getStripeConfig()
 
   const signature = request.headers.get('stripe-signature')
   if (!signature) return new Response('Missing signature', { status: 400 })

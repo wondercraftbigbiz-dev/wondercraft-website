@@ -15,6 +15,10 @@ import {
   readChargeRefund,
   readIntentEvent,
 } from '../lib/payments/webhook-parse.ts'
+import {
+  evaluateReadiness,
+  type ReadinessFacts,
+} from '../lib/payments/readiness.ts'
 import { addMoney, eur, toBgn } from '../lib/money.ts'
 import { plans } from '../lib/data/pricing.ts'
 
@@ -140,6 +144,89 @@ assert.equal(
   6952,
   'converting the parts separately must round twice and land a stotinka low',
 )
+
+// --- Readiness --------------------------------------------------------------
+// The guard that decides whether a real card may be charged. Both placeholder
+// flags spent a commit being decorative — present, documented, warned about in a
+// check script, and never read at request time. These assertions are what stop
+// that happening again.
+
+const READY: ReadinessFacts = {
+  paymentsConfigured: true,
+  webhookSecret: true,
+  econtMode: 'live',
+  econtError: null,
+  parcelPlaceholder: false,
+  dispatchPlaceholder: false,
+}
+
+const blockers = (f: ReadinessFacts) =>
+  evaluateReadiness(f)
+    .filter((i) => i.blocksLiveCharge)
+    .map((i) => i.key)
+
+// Fully configured: nothing to report at all.
+assert.deepEqual(evaluateReadiness(READY), [])
+assert.deepEqual(blockers(READY), [])
+
+// A guessed box must block a live charge. This is the one that would otherwise
+// undercharge the shop on every single order, invisibly.
+assert.deepEqual(blockers({ ...READY, parcelPlaceholder: true }), [
+  'PACKED_PARCEL (lib/data/pricing.ts)',
+])
+
+// Fixture Econt invents prices (5.90 + weight x 0.60 BGN) and returns them as
+// authoritative. Charging a real card against that is the worst case in the
+// whole system: real money, fabricated number, nothing logged as unusual.
+assert.deepEqual(blockers({ ...READY, econtMode: 'fixture' }), ['ECONT_MODE'])
+
+// No real dispatch point: wrong origin, and a label Econt would reject.
+assert.deepEqual(blockers({ ...READY, dispatchPlaceholder: true }), [
+  'DISPATCH (lib/data/dispatch.ts)',
+])
+
+// Econt config that throws is a blocker in its own right, and must not be
+// mistaken for "fixture mode is fine".
+const econtBroken = evaluateReadiness({
+  ...READY,
+  econtMode: null,
+  econtError: 'missing ECONT_PASSWORD',
+})
+assert.ok(econtBroken.some((i) => i.consequence.includes('ECONT_PASSWORD')))
+assert.ok(econtBroken.every((i) => i.blocksLiveCharge))
+
+// A missing webhook secret does NOT block the charge — it is too late by then —
+// but it must be reported, because it is the failure where money moves and no
+// order is ever marked paid.
+const noWebhook = evaluateReadiness({ ...READY, webhookSecret: false })
+assert.equal(noWebhook.length, 1)
+assert.equal(noWebhook[0].key, 'STRIPE_WEBHOOK_SECRET')
+assert.equal(noWebhook[0].blocksLiveCharge, false)
+assert.match(noWebhook[0].consequence, /never settle/)
+
+// Everything wrong at once: each problem is named separately rather than
+// collapsing into one generic message a reader cannot act on.
+const allBadFacts: ReadinessFacts = {
+  paymentsConfigured: false,
+  webhookSecret: false,
+  econtMode: 'fixture',
+  econtError: null,
+  parcelPlaceholder: true,
+  dispatchPlaceholder: true,
+}
+const allBad = evaluateReadiness(allBadFacts)
+assert.equal(allBad.length, 5, 'every problem reported, not just the first')
+assert.equal(blockers(allBadFacts).length, 3, 'three of the five block a charge')
+
+// No issue may leak a value. /api/health is public, so keys are names only.
+for (const issue of allBad) {
+  assert.doesNotMatch(
+    issue.key,
+    /sk_|pk_|whsec_|eyJ/,
+    `readiness leaked a value in: ${issue.key}`,
+  )
+  assert.doesNotMatch(issue.consequence, /sk_|pk_|whsec_|eyJ/)
+}
 
 // --- Webhook parsing --------------------------------------------------------
 // Signature verification proves origin, not shape. Every field below is one

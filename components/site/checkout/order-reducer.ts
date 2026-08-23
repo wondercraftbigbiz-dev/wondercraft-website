@@ -21,7 +21,7 @@ export type QuoteState =
       shipping: MoneyDto
       total: MoneyDto
       quoteId: string
-      /** Epoch ms. A hard gate once a card is involved — see use-payment-intent. */
+      /** Epoch ms. Enforced by useQuoteExpiry in use-shipping-quote.ts. */
       expiresAt: number
     }
   | { status: 'error'; message: string }
@@ -94,6 +94,15 @@ export type OrderState = {
   step: Step
   /** Minted once per payment attempt. Null until the payment step is entered. */
   attemptId: string | null
+  /**
+   * Bumped when a quote is discarded for a reason the destination did not
+   * change — currently only expiry.
+   *
+   * quoteKey() is a pure function of the destination, so it cannot express "the
+   * same destination, but ask again". Without this the refetch effect would not
+   * re-run after an expiry, because its key would be identical.
+   */
+  quoteNonce: number
   printName: string
   customization: string
   message: string
@@ -146,6 +155,7 @@ export type Action =
       expiresAt: number
     }
   | { type: 'quoteError'; message: string }
+  | { type: 'quoteExpired' }
   | { type: 'intentStart' }
   | {
       type: 'intentReady'
@@ -185,6 +195,7 @@ export function initialOrderState(planId: PlanId): OrderState {
     marketingConsent: false,
     step: 'details',
     attemptId: null,
+    quoteNonce: 0,
     printName: '',
     customization: '',
     message: '',
@@ -436,6 +447,20 @@ export function orderReducer(state: OrderState, action: Action): OrderState {
 
     case 'quoteError':
       return { ...state, quote: { status: 'error', message: action.message } }
+
+    case 'quoteExpired':
+      // The delivery price has a shelf life and it has run out. Discard it, send
+      // the customer back to the details step, and ask again — the destination
+      // has not changed, so quoteNonce is what makes the refetch fire.
+      //
+      // Never fires mid-payment: use-shipping-quote does not arm the timer while
+      // Stripe has the payment, because yanking state out from under a 3DS
+      // challenge is worse than honouring a slightly stale price.
+      return {
+        ...state,
+        ...invalidatePricing(),
+        quoteNonce: state.quoteNonce + 1,
+      }
 
     case 'submitOk':
       return { ...state, submit: { status: 'done', orderRef: action.orderRef } }

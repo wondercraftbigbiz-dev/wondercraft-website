@@ -126,8 +126,13 @@ function buildLabel(input: QuoteInput, sender: EcontSender): EcontLabel {
     },
   }
 
-  if (sender.officeCode) label.senderOfficeCode = sender.officeCode
-  else {
+  // Econt treats these as alternatives, not a blend: given an office code it
+  // ignores the address entirely. The union in lib/data/dispatch.ts makes that
+  // explicit here rather than leaving it to a truthiness check that could
+  // silently prefer a stale office code over a filled-in address.
+  if (sender.kind === 'office') {
+    label.senderOfficeCode = sender.officeCode
+  } else {
     label.senderAddress = {
       city: cityStub(sender.cityName, sender.cityPostCode),
       street: sender.street,

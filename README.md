@@ -193,6 +193,40 @@ an endpoint.
 **`api.stripe.com` is blocked in Claude Code's web sandbox**, exactly as
 `*.econt.com` is, and for the same reason. Verify the card path on a deploy.
 
+#### Configuration, and why so little of it is in the environment
+
+Two things make environment variables a poor place for configuration here:
+
+- **Vercel snapshots them into a deployment.** Editing one in the dashboard
+  updates the project, not deployments already built.
+- **`NEXT_PUBLIC_` ones are inlined into the JS bundle at build time.** Setting
+  `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` after a build leaves the shipped bundle
+  with `undefined`. That needs a rebuild, not a redeploy.
+
+Neither is fixable, so the answer is fewer of them. Only genuine secrets remain:
+Econt's credentials and base URL, the three Stripe keys, and the Supabase URL and
+service-role key. Everything else — the parcel, the dispatch point, the automat
+limits — lives in `lib/data/`, where a missing field is a typecheck failure
+rather than something a customer discovers mid-order.
+
+**`GET /api/health`** answers "can this deployment take an order?" It returns the
+names of what is missing and the consequence of each, never values, and 503 until
+there is nothing left. `pnpm check:ready` is the local equivalent.
+
+#### The live-money guard
+
+`assertChargeable()` runs at the top of `createIntent()`. With `sk_live_` keys it
+refuses to charge when:
+
+- Econt is not in live mode — the fixture client invents prices
+  (`5.90 + weight x 0.60` BGN) and returns them as authoritative;
+- `PARCEL_IS_PLACEHOLDER` is set — delivery priced from a guessed box;
+- `DISPATCH_IS_PLACEHOLDER` is set — parcels have no real origin.
+
+With test keys it does nothing, so the flow stays clickable before the real
+numbers are known. Both placeholder flags existed for a commit as comments
+nothing read; this is what makes them load-bearing.
+
 #### PCI scope
 
 Card details are entered into Stripe's cross-origin iframe and never touch this
@@ -210,6 +244,10 @@ log or forward a card number.
 | `lib/econt/fixtures/` | offline data, including the awkward cases |
 | `lib/order/schema.ts` | validation both the browser and the API run |
 | `lib/order/pricing.ts` | authoritative pricing, shared by the quote and the charge |
+| `lib/data/dispatch.ts` | where parcels ship FROM — in code, not the environment |
+| `lib/payments/readiness.ts` | what is missing, and the live-money guard |
+| `supabase/migrations/` | the database schema, source of truth |
+| `app/api/health` | whether a running deployment can take an order |
 | `lib/order/repository.ts` | the only module that talks to the orders database |
 | `lib/payments/` | Stripe config, client, intent creation, webhook parsing |
 | `lib/payments/dto.ts` | the only payments types the browser sees |

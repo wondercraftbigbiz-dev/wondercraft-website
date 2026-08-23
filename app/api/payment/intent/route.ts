@@ -6,7 +6,7 @@ import { logFailure, rateLimitGuard } from '@/lib/econt/route-helpers'
 import type { Money } from '@/lib/money'
 import { hasErrors, validateOrder, type OrderDraft } from '@/lib/order/schema'
 import type { OrderContext } from '@/lib/order/pricing'
-import { getStripeConfig } from '@/lib/payments/config'
+import { isPaymentsConfigured } from '@/lib/payments/config'
 import type { IntentResponse } from '@/lib/payments/dto'
 import { createIntent } from '@/lib/payments/intent'
 import { toPaymentMessageBg } from '@/lib/payments/errors'
@@ -18,7 +18,7 @@ const MAX_BODY_BYTES = 8 * 1024
 /**
  * Open a card payment.
  *
- * The card sibling of /api/order. Everything the browser sent is re-validated
+ * The only way an order is placed. Everything the browser sent is re-validated
  * and re-priced with the same shared validator, so a bypassed client gets the
  * same Bulgarian messages rather than a divergent second set.
  *
@@ -38,7 +38,7 @@ export async function POST(request: Request) {
     return json({ ok: false, reason: 'invalid', message: 'Заявката е прекалено голяма.' })
   }
 
-  if (getStripeConfig().mode !== 'live') {
+  if (!isPaymentsConfigured()) {
     return json({
       ok: false,
       reason: 'unavailable',
@@ -98,8 +98,8 @@ export async function POST(request: Request) {
   }
 
   try {
-    // Re-resolve against fresh nomenclature, same as /api/order. Here a failure
-    // is fatal rather than tolerated, per the note above.
+    // Re-resolve against fresh nomenclature the browser cannot forge. A failure
+    // here is fatal rather than tolerated, per the note above.
     let city: CityDto | null = null
     let office: OfficeDto | null = null
 

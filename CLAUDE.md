@@ -26,14 +26,17 @@ section is deleted. It is not conditional on the task touching payments.
    `STRIPE_SECRET_KEY` (`sk_live_…`),
    `STRIPE_WEBHOOK_SECRET` (a **third, different** `whsec_…` from the live-mode
    Dashboard endpoint — test and live signing secrets are never interchangeable).
-3. Set `STRIPE_MODE=live` in Production.
-4. Register the live webhook endpoint at `https://<domain>/api/stripe/webhook`.
-5. Fill in `PACKED_PARCEL` in `lib/data/pricing.ts` (see below). Checkout is
-   structurally unreachable until this is done, and with no cash-on-delivery
-   fallback that means no orders at all.
-6. Confirm `resolvePrice()`'s field choice against the real Econt API, per the
+   There is no `STRIPE_MODE`: the keys are the switch.
+   **Rebuild afterwards, not just redeploy** — the publishable key is inlined
+   into the browser bundle at build time.
+3. Register the live webhook endpoint at `https://<domain>/api/stripe/webhook`.
+4. Fill in `PACKED_PARCEL` in `lib/data/pricing.ts` and `DISPATCH` in
+   `lib/data/dispatch.ts`, clearing both placeholder flags. Until then
+   `assertChargeable()` refuses every live card.
+5. Confirm `resolvePrice()`'s field choice against the real Econt API, per the
    README's "Before this can go live" section.
-7. Run the extended secret-leak grep in the README.
+6. Check `GET /api/health` on the deployment returns 200, and run the extended
+   secret-leak grep in the README.
 
 Delete this section only when live payments are confirmed working in production.
 
@@ -43,10 +46,12 @@ Delete this section only when live payments are confirmed working in production.
   measure a real packed box later. Until then `isParcelConfigured()` is false,
   `calculateShipping()` throws, and every delivery quote fails closed.
 
-  **Card is the only payment method, so this blocks EVERY order.** No quote means
-  no total, which means nothing to charge and no way to complete checkout. The
-  shop cannot take a single order until the box is measured. Do not work around
-  it with an env override: `lib/data/pricing.ts` is reachable from client components, so
+  **Placeholder values are currently in place**, so the quote no longer fails
+  closed — it fails OPEN, quoting confidently from a guessed box.
+  `assertChargeable()` in `lib/payments/readiness.ts` is what stops that
+  reaching real money: with `sk_live_` keys it refuses while
+  `PARCEL_IS_PLACEHOLDER` or `DISPATCH_IS_PLACEHOLDER` is set. Do not work
+  around the measurement with an env override: `lib/data/pricing.ts` is reachable from client components, so
   a non-`NEXT_PUBLIC_` read there is `undefined` in the browser and set on the
   server, which is silent client/server divergence in the one module that must
   not diverge.

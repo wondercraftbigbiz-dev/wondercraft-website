@@ -1,7 +1,7 @@
 import 'server-only'
 
 import Stripe from 'stripe'
-import { getStripeConfig } from './config'
+import { getStripeConfig, isPaymentsConfigured } from './config'
 import { PaymentError } from './errors'
 
 let client: Stripe | null = null
@@ -16,10 +16,10 @@ let client: Stripe | null = null
  * reads like diligence but only ever produces churn.
  */
 export function getStripe(): Stripe {
-  const config = getStripeConfig()
-  if (config.mode !== 'live') {
-    throw new PaymentError('disabled', 'Stripe is disabled (STRIPE_MODE)')
+  if (!isPaymentsConfigured()) {
+    throw new PaymentError('disabled', 'Stripe keys are not configured')
   }
+  const config = getStripeConfig()
 
   client ??= new Stripe(config.secretKey, {
     typescript: true,

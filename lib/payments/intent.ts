@@ -6,6 +6,7 @@ import type { OrderInput } from '@/lib/order/schema'
 import { orderRefOf, priceOrder, type OrderContext } from '@/lib/order/pricing'
 import { PaymentError } from './errors'
 import { buildIntentMetadata } from './metadata'
+import { assertChargeable } from './readiness'
 import { getStripe } from './stripe'
 
 export type IntentResult =
@@ -47,12 +48,16 @@ export async function createIntent(
     userAgent: string | null
   },
 ): Promise<IntentResult> {
+  // Before anything else: a live card may not be charged against a deployment
+  // that cannot price one. No-op with test keys.
+  assertChargeable()
+
   const priced = await priceOrder(input, context)
 
-  // Unlike /api/order, this route cannot shrug off an unreachable Econt. That
-  // route accepts an unpriced order because the shop confirms every sale by
-  // phone; here there is no amount to charge, so there is nothing to confirm.
-  // Do not "harmonise" the two — see the note in app/api/order/route.ts.
+  // An unreachable Econt is fatal here. There was once a cash-on-delivery route
+  // that accepted an unpriced order because the shop confirmed every sale by
+  // phone; card is now the only payment method, so with no delivery price there
+  // is no total, and nothing to charge.
   if (!priced.shipping) {
     throw new PaymentError('no_quote', 'No delivery quote, cannot charge a card')
   }

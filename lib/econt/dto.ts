@@ -88,7 +88,10 @@ export type QuoteOk = {
   total: MoneyDto
   /** Opaque handle so the order route can spot a quote it no longer agrees with. */
   quoteId: string
-  /** Epoch ms. Advisory today; a hard gate once payment is involved. */
+  /**
+   * Epoch ms. A hard gate: use-shipping-quote discards the quote at this
+   * instant and asks again, so a card is never entered against a stale price.
+   */
   expiresAt: number
 }
 
