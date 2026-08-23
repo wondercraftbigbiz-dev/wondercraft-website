@@ -9,6 +9,8 @@ import { invalidate } from '../lib/econt/cache.ts'
 import {
   assertSenderConfigured,
   getEcontConfig,
+  type EcontConfig,
+  type EcontSender,
 } from '../lib/econt/config.ts'
 import { canFitInAps } from '../lib/econt/constraints.ts'
 import { isEcontError, toUserMessageBg } from '../lib/econt/errors.ts'
@@ -147,7 +149,13 @@ async function main(): Promise<void> {
         }),
       (err: unknown) => {
         assert.ok(isEcontError(err) && err.kind === 'config')
-        assert.match(toUserMessageBg(err), /по телефон/)
+        // The customer-facing message must NOT offer to settle the price by
+        // phone. Card is the only payment method, so an unpriced delivery means
+        // the order cannot be placed at all, and promising a call would be a
+        // promise nothing in the system keeps.
+        const message = toUserMessageBg(err)
+        assert.match(message, /доставката/)
+        assert.doesNotMatch(message, /телефон|договаряне/)
         return true
       },
       'an unmeasured parcel must fail as a config error',
@@ -318,50 +326,110 @@ async function main(): Promise<void> {
   // Regression guard for a circular-configuration bug: sender validation used to
   // run on every call, so getOffices() refused to work until the sender's own
   // office code was set — which is the thing you need getOffices() to find.
+  //
+  // The sender now lives in lib/data/dispatch.ts rather than the environment, so
+  // this exercises assertSenderConfigured() against hand-built configs instead of
+  // deleting variables. Same property, and it no longer depends on the real
+  // DISPATCH constant being in any particular state.
   process.env.ECONT_MODE = 'live'
   process.env.ECONT_BASE_URL = 'https://ee.econt.com/services'
   process.env.ECONT_USERNAME = 'u'
   process.env.ECONT_PASSWORD = 'p'
-  for (const key of [
-    'ECONT_SENDER_PHONE',
-    'ECONT_SENDER_CITY_NAME',
-    'ECONT_SENDER_CITY_POST_CODE',
-    'ECONT_SENDER_OFFICE_CODE',
-    'ECONT_SENDER_STREET',
-  ]) {
-    delete process.env[key]
-  }
 
   // Credentials alone are enough to read the nomenclature...
   assert.doesNotThrow(() => getEcontConfig())
 
-  // ...but a shipment still refuses to be priced without a sender, and says
-  // which variables are missing.
+  const withSender = (sender: EcontSender): EcontConfig => ({
+    ...getEcontConfig(),
+    sender,
+  })
+
+  // ...but a shipment refuses to be priced without one, naming what is missing.
   assert.throws(
-    () => assertSenderConfigured(getEcontConfig()),
+    () =>
+      assertSenderConfigured(
+        withSender({ kind: 'office', name: '', phone: '', officeCode: '' }),
+      ),
     (err: unknown) => {
       assert.ok(isEcontError(err) && err.kind === 'config')
       const missing = (err.detail as { missing: string[] }).missing
       assert.deepEqual(missing, [
-        'ECONT_SENDER_PHONE',
-        'ECONT_SENDER_CITY_NAME',
-        'ECONT_SENDER_CITY_POST_CODE',
-        'ECONT_SENDER_OFFICE_CODE or ECONT_SENDER_STREET',
+        'DISPATCH.name',
+        'DISPATCH.phone',
+        'DISPATCH.officeCode',
       ])
       return true
     },
   )
 
-  // Either dispatch method satisfies it, and neither is required by the other.
-  process.env.ECONT_SENDER_PHONE = '+359885147348'
-  process.env.ECONT_SENDER_CITY_NAME = 'Благоевград'
-  process.env.ECONT_SENDER_CITY_POST_CODE = '2700'
-  process.env.ECONT_SENDER_OFFICE_CODE = '2710'
-  assert.doesNotThrow(() => assertSenderConfigured(getEcontConfig()))
+  // An address dispatch names its own fields, not the office one.
+  assert.throws(
+    () =>
+      assertSenderConfigured(
+        withSender({
+          kind: 'address',
+          name: 'WonderCraft',
+          phone: '+359885147348',
+          cityName: '',
+          cityPostCode: '',
+          street: '',
+          streetNum: '',
+        }),
+      ),
+    (err: unknown) => {
+      assert.deepEqual((err as { detail: { missing: string[] } }).detail.missing, [
+        'DISPATCH.cityName',
+        'DISPATCH.cityPostCode',
+        'DISPATCH.street',
+        'DISPATCH.streetNum',
+      ])
+      return true
+    },
+  )
 
-  delete process.env.ECONT_SENDER_OFFICE_CODE
-  process.env.ECONT_SENDER_STREET = 'ул. Тодор Александров'
-  assert.doesNotThrow(() => assertSenderConfigured(getEcontConfig()))
+  // Either dispatch method satisfies it, and neither requires the other's
+  // fields. This is the property the union in lib/data/dispatch.ts encodes.
+  assert.doesNotThrow(() =>
+    assertSenderConfigured(
+      withSender({
+        kind: 'office',
+        name: 'WonderCraft',
+        phone: '+359885147348',
+        officeCode: '2710',
+      }),
+    ),
+  )
+  assert.doesNotThrow(() =>
+    assertSenderConfigured(
+      withSender({
+        kind: 'address',
+        name: 'WonderCraft',
+        phone: '+359885147348',
+        cityName: 'Благоевград',
+        cityPostCode: '2700',
+        street: 'ул. Тодор Александров',
+        streetNum: '23',
+      }),
+    ),
+  )
+
+  // Whitespace is not a value. A field of spaces used to satisfy a truthiness
+  // check and then produce a label Econt rejects.
+  assert.throws(() =>
+    assertSenderConfigured(
+      withSender({ kind: 'office', name: '  ', phone: '  ', officeCode: '  ' }),
+    ),
+  )
+
+  // Fixture mode never asserts a sender at all: offline development must not
+  // require a real dispatch point.
+  process.env.ECONT_MODE = 'fixture'
+  assert.doesNotThrow(() =>
+    assertSenderConfigured(
+      withSender({ kind: 'office', name: '', phone: '', officeCode: '' }),
+    ),
+  )
+  process.env.ECONT_MODE = 'live'
 
   // Missing credentials are still caught on every call, not just shipments.
   delete process.env.ECONT_PASSWORD

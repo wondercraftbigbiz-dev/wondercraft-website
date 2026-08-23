@@ -24,6 +24,8 @@ export function useShippingQuote(
   state: OrderState,
   dispatch: Dispatch<Action>,
 ): void {
+  useQuoteExpiry(state, dispatch)
+
   const key = quoteKey(state)
   const latestKey = useRef<string | null>(null)
   latestKey.current = key
@@ -77,7 +79,7 @@ export function useShippingQuote(
         dispatch({
           type: 'quoteError',
           message:
-            'Не успяхме да изчислим доставката. Ще потвърдим цената по телефон.',
+            'Не успяхме да изчислим доставката. Проверете връзката и опитайте отново.',
         })
       }
     }, debounce)
@@ -87,8 +89,40 @@ export function useShippingQuote(
       controller.abort()
     }
     // state.delivery.type only picks the debounce and always changes the key too.
+    // quoteNonce is what re-asks for the same destination after an expiry.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key, dispatch])
+  }, [key, state.quoteNonce, dispatch])
+}
+
+/**
+ * Discards a delivery price once it is older than the server said it would keep.
+ *
+ * `expiresAt` has been carried since the quote route first returned it, and
+ * three comments described it as a hard gate, but nothing ever compared it to
+ * the clock. The reprice check in createIntent() protects the money either way —
+ * it recomputes server-side and refuses a mismatch — but a customer should be
+ * told the price moved before they type a card number, not after.
+ *
+ * Deliberately does nothing while Stripe has the payment. Tearing the quote out
+ * from under a 3DS challenge would abandon a payment that may already have
+ * succeeded, which is far worse than honouring a price a few seconds stale.
+ */
+function useQuoteExpiry(state: OrderState, dispatch: Dispatch<Action>): void {
+  const expiresAt = state.quote.status === 'ok' ? state.quote.expiresAt : null
+  const paying = state.pay.status === 'confirming'
+
+  useEffect(() => {
+    if (expiresAt === null || paying) return
+
+    const ms = expiresAt - Date.now()
+    if (ms <= 0) {
+      dispatch({ type: 'quoteExpired' })
+      return
+    }
+
+    const timer = window.setTimeout(() => dispatch({ type: 'quoteExpired' }), ms)
+    return () => window.clearTimeout(timer)
+  }, [expiresAt, paying, dispatch])
 }
 
 function apply(dispatch: Dispatch<Action>, response: QuoteResponse): void {
@@ -99,6 +133,9 @@ function apply(dispatch: Dispatch<Action>, response: QuoteResponse): void {
       shipping: response.shipping,
       total: response.total,
       quoteId: response.quoteId,
+      // Forwarded, not dropped: useQuoteExpiry above times the quote out from
+      // this number, and it can only do that if it survives the hop.
+      expiresAt: response.expiresAt,
     })
     return
   }

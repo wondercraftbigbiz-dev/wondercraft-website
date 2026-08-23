@@ -39,7 +39,7 @@ export function isEcontError(e: unknown): e is EcontError {
 }
 
 const OFFLINE_MESSAGE =
-  'Не успяхме да се свържем със системата на Еконт. Опитайте отново след минута или продължете — ще потвърдим доставката по телефон.'
+  'Не успяхме да се свържем със системата на Еконт. Опитайте отново след минута.'
 
 /**
  * The only path from an error to the customer's screen.
@@ -53,7 +53,7 @@ export function toUserMessageBg(e: unknown): string {
 
   switch (e.kind) {
     case 'config':
-      return 'Изчисляването на доставката е временно недостъпно. Ще потвърдим цената по телефон.'
+      return 'Изчисляването на доставката е временно недостъпно.'
     case 'validation':
       // Validation messages are authored by us in Bulgarian at the throw site.
       return e.message

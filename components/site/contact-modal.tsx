@@ -8,9 +8,10 @@ import {
   validateContact,
   validateDelivery,
 } from '@/lib/order/schema'
-import type { OrderResponse } from '@/lib/econt/dto'
 import { findPlan } from '@/lib/data/pricing'
 import { DeliverySection } from './checkout/delivery-section'
+import { PaymentStep, payButtonLabel } from './checkout/payment-step'
+import { usePaymentIntent } from './checkout/use-payment-intent'
 import { OrderSummary } from './checkout/order-summary'
 import { useShippingQuote } from './checkout/use-shipping-quote'
 import {
@@ -35,59 +36,100 @@ export function ContactModal({
   const { errors, planId } = state
   const isCustom = planId === 'custom'
   const submitted = state.submit.status === 'done'
-  const submitting = state.submit.status === 'submitting'
   const plan = findPlan(planId)
 
   useShippingQuote(state, dispatch)
+  usePaymentIntent(state, dispatch)
+
+  const onPayment = state.step === 'payment'
+  const paying = state.pay.status === 'confirming'
+
+  // Card is the only payment method, so anything that blocks a card blocks the
+  // order outright. Each branch is honest about which it is: a missing quote is
+  // something the customer can fix by choosing a destination, a failed quote or
+  // an unconfigured Stripe is not, and telling them to call is the only useful
+  // instruction left.
+  const stripeConfigured = Boolean(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY)
+  const blockedReason = !stripeConfigured
+    ? 'Плащането е временно недостъпно. Моля, свържете се с нас, за да поръчате.'
+    : state.quote.status === 'error'
+      ? 'Не можем да изчислим доставката в момента. Свържете се с нас, за да завършим поръчката.'
+      : state.quote.status !== 'ok'
+        ? 'Изберете къде да доставим, за да продължите към плащане.'
+        : null
+
+  // Two different things, deliberately not one flag. `busy` is why the button
+  // cannot be pressed; `working` is whether something is actually happening.
+  // A blocked order is not in progress, and spinning at a customer who simply
+  // has not chosen a destination yet tells them the site is thinking when it is
+  // waiting for them.
+  const payFailed = onPayment && state.pay.status === 'error'
+  const canRetryPay = payFailed && state.pay.status === 'error' && state.pay.retryable
+  const working =
+    paying || (onPayment && state.pay.status !== 'ready' && !payFailed)
+  const busy = working || Boolean(blockedReason) || (payFailed && !canRetryPay)
+
+  const buttonLabel = paying
+    ? 'Потвърждаваме…'
+    : canRetryPay
+      ? 'Опитайте отново'
+      : payFailed
+        ? 'Плащането е недостъпно'
+        : onPayment
+          ? state.pay.status === 'ready'
+            ? payButtonLabel({
+                cents: state.pay.total.cents,
+                currency: state.pay.total.currency,
+              })
+            : 'Подготвяме плащането…'
+          : 'Продължи към плащане'
+
+  /**
+   * Start the payment over on a fresh attempt.
+   *
+   * A new attempt id changes intentKey(), which is what re-fires the effect that
+   * opens a PaymentIntent. Reusing the old id would find the previous attempt
+   * and hand back the intent that just failed.
+   */
+  function retryPayment() {
+    dispatch({ type: 'goToPayment', attemptId: crypto.randomUUID() })
+  }
 
   // Move focus into the dialog on open.
   useEffect(() => {
     firstFieldRef.current?.focus()
   }, [])
 
-  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+  function handlePaid(orderRef: string) {
+    dispatch({ type: 'submitOk', orderRef })
+  }
+
+  /**
+   * Validate the details, then move to payment.
+   *
+   * Nothing is submitted here any more. The order is created, priced and
+   * charged by /api/payment/intent, which the payment step drives — so this
+   * step's only job is to refuse to advance on data the server would reject
+   * anyway.
+   */
+  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
-    if (submitting) return
+    if (onPayment || blockedReason) return
 
     const draft = toOrderDraft(state)
     const next = { ...validateContact(draft), ...validateDelivery(draft.delivery) }
     dispatch({ type: 'setErrors', errors: next })
     if (hasErrors(next)) return
 
-    dispatch({ type: 'submitStart' })
-    try {
-      const res = await fetch('/api/order', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(draft),
-      })
-      const body = (await res.json()) as OrderResponse
-
-      if (body.ok) {
-        dispatch({ type: 'submitOk', orderRef: body.orderRef })
-        return
-      }
-
-      // The server re-runs the same validator, so its field errors render
-      // through exactly the same error record as the client's own.
-      if (body.errors) dispatch({ type: 'setErrors', errors: body.errors })
-      else if (body.field) {
-        dispatch({ type: 'setErrors', errors: { [body.field]: body.message } as never })
-      }
-      dispatch({ type: 'submitError', message: body.message })
-    } catch {
-      dispatch({
-        type: 'submitError',
-        message:
-          'Нещо се обърка при изпращането. Проверете връзката и опитайте отново.',
-      })
-    }
+    dispatch({ type: 'goToPayment', attemptId: crypto.randomUUID() })
   }
 
   return (
     <ModalShell
-      title={submitted ? 'Благодарим ви!' : 'Поръчай сега'}
+      title={submitted ? 'Благодарим ви!' : onPayment ? 'Плащане' : 'Поръчай сега'}
       onClose={onClose}
+      // Locked while Stripe has the payment, including the 3DS window.
+      dismissible={!paying}
       aside={
         submitted ? undefined : (
           // Sticky so the total and the button stay in view if the column
@@ -97,29 +139,53 @@ export function ContactModal({
               productEurCents={plan?.priceEurCents ?? 0}
               quote={state.quote}
             />
-            {state.submit.status === 'error' && (
+            {!onPayment && blockedReason && (
+              <p className="mt-4 rounded-md border border-border-soft bg-kraft/30 px-4 py-3 text-sm leading-relaxed text-charcoal-soft">
+                {blockedReason}
+              </p>
+            )}
+            {state.pay.status === 'error' && (
               <p
                 role="alert"
                 className="mt-4 flex items-start gap-2 rounded-md border border-salmon-deep bg-salmon/25 px-4 py-3 text-sm leading-relaxed text-charcoal"
               >
                 <AlertIcon className="mt-0.5 h-5 w-5 shrink-0" aria-hidden="true" />
-                {state.submit.message}
+                {state.pay.message}
               </p>
             )}
+            {/* One button, three jobs. It stays a single node in the aside and
+                reaches whichever form is showing through form="…", the same
+                mechanism the details form already used to span the CSS layout
+                split. Rendering a second button for the payment step would
+                duplicate this column, and with it OrderSummary's aria-live
+                region — see the note in modal-shell.tsx. */}
             <button
-              type="submit"
-              form="order-form"
-              disabled={submitting}
+              type={canRetryPay ? 'button' : 'submit'}
+              form={canRetryPay ? undefined : onPayment ? 'payment-form' : 'order-form'}
+              onClick={canRetryPay ? retryPayment : undefined}
+              disabled={busy}
               className="mt-4 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-md border border-border-soft bg-salmon px-6 py-3 font-sans text-base font-semibold text-charcoal shadow-soft transition-all duration-200 ease-[cubic-bezier(0.34,1.56,0.64,1)] hover:-translate-y-0.5 hover:scale-[1.02] hover:bg-salmon-hover hover:shadow-soft-lg active:scale-[0.96] active:duration-100 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0 disabled:hover:scale-100"
             >
-              {submitting && (
+              {working && (
                 <SpinnerIcon className="h-4 w-4 animate-spin" aria-hidden="true" />
               )}
-              {submitting ? 'Изпращаме…' : 'Поръчай сега'}
+              {buttonLabel}
             </button>
-            <p className="mt-3 text-center text-sm text-charcoal-soft">
-              Ще се свържем с вас, за да потвърдим детайлите.
-            </p>
+
+            {onPayment ? (
+              <button
+                type="button"
+                onClick={() => dispatch({ type: 'backToDetails' })}
+                disabled={paying}
+                className="mt-2 inline-flex min-h-11 w-full items-center justify-center rounded-md border border-transparent px-6 py-2 font-sans text-sm font-semibold text-charcoal-soft underline-offset-4 hover:underline disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:no-underline"
+              >
+                Промени данните
+              </button>
+            ) : (
+              <p className="mt-3 text-center text-sm text-charcoal-soft">
+                Плащането е защитено и се обработва от Stripe.
+              </p>
+            )}
           </div>
         )
       }
@@ -129,16 +195,26 @@ export function ContactModal({
           orderRef={
             state.submit.status === 'done' ? state.submit.orderRef : ''
           }
+          email={state.email}
         />
       ) : (
-        <form
-          id="order-form"
-          onSubmit={handleSubmit}
-          noValidate
+        // One scroll container holding two SIBLING forms. The payment form
+        // cannot be nested inside the details form: nested <form> elements are
+        // invalid HTML and the browser drops the inner one, which would leave
+        // the pay button submitting nothing.
+        <div
           // flex-1 covers the stacked layout; the explicit placement is for the
           // lg grid, where flex sizing no longer applies.
           className="min-h-0 flex-1 overflow-y-auto px-6 py-5 lg:col-start-1 lg:row-start-2"
         >
+          <form id="order-form" onSubmit={handleSubmit} noValidate>
+          {/* Frozen once the payment step opens. Name, phone and address do not
+              change the amount, but they were written to the order row before
+              Stripe was called, so letting them change underneath a live
+              PaymentIntent would leave the row describing a different order than
+              the one being paid for. A fieldset disables the whole subtree
+              without threading a prop through every child. */}
+          <fieldset disabled={onPayment} className="contents">
           <div className="flex flex-col gap-4">
             <Field label="Име" error={errors.name}>
               {({ describedBy, hasError }) => (
@@ -172,6 +248,25 @@ export function ContactModal({
                   aria-describedby={describedBy}
                   onChange={(e) =>
                     dispatch({ type: 'setText', field: 'phone', value: e.target.value })
+                  }
+                />
+              )}
+            </Field>
+
+            <Field label="Имейл" error={errors.email}>
+              {({ describedBy, hasError }) => (
+                <input
+                  name="email"
+                  type="email"
+                  inputMode="email"
+                  autoComplete="email"
+                  maxLength={LIMITS.email}
+                  className="modal-input"
+                  value={state.email}
+                  aria-invalid={hasError || undefined}
+                  aria-describedby={describedBy}
+                  onChange={(e) =>
+                    dispatch({ type: 'setText', field: 'email', value: e.target.value })
                   }
                 />
               )}
@@ -263,15 +358,41 @@ export function ContactModal({
                 />
               )}
             </Field>
+            <label className="flex cursor-pointer items-start gap-2.5 text-sm leading-relaxed text-charcoal-soft">
+              <input
+                name="marketingConsent"
+                type="checkbox"
+                className="mt-0.5 h-4 w-4 shrink-0 accent-salmon-deep"
+                checked={state.marketingConsent}
+                onChange={(e) =>
+                  dispatch({ type: 'setMarketingConsent', value: e.target.checked })
+                }
+              />
+              Искам да получавам новини и оферти по имейл. Може да се отпишете по
+              всяко време.
+            </label>
           </div>
+          </fieldset>
+          </form>
 
-        </form>
+          {onPayment && (
+            <div className="mt-5 border-t border-border-soft pt-5">
+              <PaymentStep state={state} dispatch={dispatch} onPaid={handlePaid} />
+            </div>
+          )}
+        </div>
       )}
     </ModalShell>
   )
 }
 
-function SuccessPanel({ orderRef }: { orderRef: string }) {
+function SuccessPanel({
+  orderRef,
+  email,
+}: {
+  orderRef: string
+  email: string
+}) {
   const { requestClose } = useModalShell()
 
   return (
@@ -280,9 +401,14 @@ function SuccessPanel({ orderRef }: { orderRef: string }) {
         <CheckIcon className="h-7 w-7 text-charcoal" aria-hidden="true" />
       </span>
       <p className="mt-5 text-pretty text-base leading-relaxed text-charcoal">
-        Получихме заявката ви. Ще се свържем с вас възможно най-скоро, за да
-        потвърдим поръчката и доставката.
+        Плащането е успешно. Ще се свържем с вас, за да потвърдим доставката.
       </p>
+      {email && (
+        <p className="mt-2 text-sm text-charcoal-soft">
+          Изпратихме разписка на{' '}
+          <span className="font-semibold text-charcoal">{email}</span>.
+        </p>
+      )}
       {orderRef && (
         <p className="mt-4 text-sm text-charcoal-soft">
           Номер на поръчката:{' '}

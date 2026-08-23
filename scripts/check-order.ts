@@ -44,7 +44,12 @@ for (const raw of [
 }
 
 // --- Contact ----------------------------------------------------------------
-const goodContact = { name: 'Иван Петров', phone: '0881234567', planId: 'standard' }
+const goodContact = {
+  name: 'Иван Петров',
+  phone: '0881234567',
+  email: 'ivan@example.com',
+  planId: 'standard',
+}
 assert.equal(hasErrors(validateContact(goodContact)), false)
 
 assert.match(validateContact({ ...goodContact, name: '' }).name!, /въведете име/)
@@ -59,19 +64,38 @@ assert.match(validateContact({ ...goodContact, phone: '' }).phone!, /въвед�
 assert.match(validateContact({ ...goodContact, phone: '029876543' }).phone!, /мобилен/)
 assert.match(validateContact({ ...goodContact, planId: 'nope' }).model!, /изберете модел/)
 
-assert.match(
-  validateContact({ ...goodContact, printName: 'а'.repeat(31) }).printName!,
-  /до 30 символа/,
-)
-assert.match(
-  validateContact({ ...goodContact, printName: 'Иван\nПетров' }).printName!,
-  /един ред/,
-)
-assert.equal(
-  validateContact({ ...goodContact, printName: '' }).printName,
-  undefined,
-  'печат is optional',
-)
+// --- Email ------------------------------------------------------------------
+// Required, because public.customers keys the customer on it and place_order
+// refuses anything without an '@'.
+assert.match(validateContact({ ...goodContact, email: '' }).email!, /въведете имейл/)
+assert.match(validateContact({ ...goodContact, email: '   ' }).email!, /въведете имейл/)
+for (const bad of [
+  'ivan',
+  'ivan@',
+  '@example.com',
+  'ivan@example',
+  'ivan@@example.com',
+  'ivan example@x.bg',
+  'ivan@.bg',
+  'ivan@bg.',
+  `${'и'.repeat(250)}@example.com`,
+]) {
+  assert.ok(
+    validateContact({ ...goodContact, email: bad }).email,
+    `should have rejected email ${bad}`,
+  )
+}
+for (const good of [
+  'ivan@example.com',
+  'ivan.petrov+order@example.co.uk',
+  'IVAN@EXAMPLE.COM',
+]) {
+  assert.equal(
+    validateContact({ ...goodContact, email: good }).email,
+    undefined,
+    `should have accepted email ${good}`,
+  )
+}
 
 // --- Delivery ---------------------------------------------------------------
 const office: DeliveryDraft = { type: 'office', cityId: 41, officeCode: '1010' }
@@ -114,6 +138,25 @@ assert.ok(ok.value)
 assert.equal(ok.value.phone, '+359881234567', 'phone must come back normalized')
 assert.equal(ok.value.name, 'Иван Петров')
 assert.equal(ok.value.planId, 'standard')
+assert.equal(ok.value.email, 'ivan@example.com')
+assert.equal(ok.value.marketingConsent, false, 'consent defaults to opt-out')
+
+// Email is lowercased and trimmed: the database uses it as the customer key,
+// so 'Ivan@X.BG' and 'ivan@x.bg' must not become two customers.
+const cased = validateOrder({
+  ...goodContact,
+  email: '  Ivan@Example.COM ',
+  delivery: office,
+})
+assert.equal(cased.value?.email, 'ivan@example.com')
+
+// Consent is opt-in: only an explicit true counts.
+const consented = validateOrder({
+  ...goodContact,
+  marketingConsent: true,
+  delivery: office,
+})
+assert.equal(consented.value?.marketingConsent, true)
 assert.equal(ok.value.printName, null, 'blank optional fields normalize to null')
 assert.equal(ok.value.delivery.cityId, 41)
 
