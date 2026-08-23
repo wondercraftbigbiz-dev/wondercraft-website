@@ -160,6 +160,26 @@ export function PinIcon(props: IconProps) {
   )
 }
 
+export function CardIcon(props: IconProps) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M2.5 6.5h19v11h-19z" />
+      <path d="M2.5 10.5h19" />
+      <path d="M6 14.5h3" />
+    </svg>
+  )
+}
+
+export function BanknoteIcon(props: IconProps) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M2.5 6.5h19v11h-19z" />
+      <circle cx="12" cy="12" r="2.5" />
+      <path d="M5.5 9.5h.01M18.5 14.5h.01" />
+    </svg>
+  )
+}
+
 export function ChevronDownIcon(props: IconProps) {
   return (
     <svg {...base} {...props}>

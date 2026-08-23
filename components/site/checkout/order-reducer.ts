@@ -1,5 +1,6 @@
 import { VCity } from '@/lib/bg'
 import type { CityDto, DeliveryType, MoneyDto } from '@/lib/econt/dto'
+import type { PaymentMethod } from '@/lib/payments/dto'
 import type { PlanId } from '@/lib/data/pricing'
 import type { OrderDraft, OrderErrorField, OrderErrors } from '@/lib/order/schema'
 
@@ -21,8 +22,43 @@ export type QuoteState =
       shipping: MoneyDto
       total: MoneyDto
       quoteId: string
+      /** Epoch ms. A hard gate once a card is involved — see use-payment-intent. */
+      expiresAt: number
     }
   | { status: 'error'; message: string }
+
+/**
+ * The card payment, from "show me the form" to "it went through".
+ *
+ * `ready` deliberately survives a decline: the same PaymentIntent can be
+ * retried with another card, and recreating one per decline would orphan rows
+ * and degrade Stripe's fraud signals. `lastError` carries the decline message.
+ */
+export type PayState =
+  | { status: 'idle' }
+  | { status: 'creating' }
+  | {
+      status: 'ready'
+      clientSecret: string
+      orderRef: string
+      total: MoneyDto
+      lastError: string | null
+    }
+  /**
+   * Stripe has it. Includes the 3DS window, during which the modal locks.
+   * Carries the intent forward: a decline returns to `ready` on the SAME client
+   * secret, so dropping it here would force a needless new PaymentIntent.
+   */
+  | {
+      status: 'confirming'
+      clientSecret: string
+      orderRef: string
+      total: MoneyDto
+    }
+  | { status: 'error'; message: string; retryable: boolean }
+
+/** Which half of the modal is showing. */
+export type Step = 'details' | 'payment'
 
 export type SubmitState =
   | { status: 'idle' }
@@ -48,7 +84,13 @@ export type DeliveryState = {
 export type OrderState = {
   name: string
   phone: string
+  email: string
   planId: PlanId
+  paymentMethod: PaymentMethod
+  marketingConsent: boolean
+  step: Step
+  /** Minted once per payment attempt. Null until the payment step is entered. */
+  attemptId: string | null
   printName: string
   customization: string
   message: string
@@ -58,11 +100,13 @@ export type OrderState = {
   notice: string | null
   quote: QuoteState
   submit: SubmitState
+  pay: PayState
 }
 
 export type TextField =
   | 'name'
   | 'phone'
+  | 'email'
   | 'printName'
   | 'customization'
   | 'message'
@@ -80,6 +124,10 @@ export type Action =
   | { type: 'setText'; field: TextField; value: string }
   | { type: 'setDeliveryText'; field: DeliveryTextField; value: string }
   | { type: 'setPlan'; planId: PlanId }
+  | { type: 'setPaymentMethod'; value: PaymentMethod }
+  | { type: 'setMarketingConsent'; value: boolean }
+  | { type: 'goToPayment'; attemptId: string }
+  | { type: 'backToDetails' }
   | { type: 'setDeliveryType'; value: DeliveryType }
   | { type: 'selectCity'; city: CityDto | null }
   | { type: 'selectOffice'; code: string | null }
@@ -93,19 +141,54 @@ export type Action =
       shipping: MoneyDto
       total: MoneyDto
       quoteId: string
+      expiresAt: number
     }
   | { type: 'quoteError'; message: string }
+  | { type: 'intentStart' }
+  | {
+      type: 'intentReady'
+      clientSecret: string
+      orderRef: string
+      total: MoneyDto
+    }
+  | { type: 'intentError'; message: string; retryable: boolean }
+  | { type: 'payConfirming' }
+  | { type: 'payDeclined'; message: string }
+  | { type: 'payError'; message: string; retryable: boolean }
   | { type: 'submitStart' }
   | { type: 'submitOk'; orderRef: string }
   | { type: 'submitError'; message: string }
 
 const IDLE_QUOTE: QuoteState = { status: 'idle' }
+const IDLE_PAY: PayState = { status: 'idle' }
+
+/**
+ * Everything that must be discarded when the price could have moved.
+ *
+ * The quote was already reset at each of these transitions. The payment now has
+ * to go with it: a client secret is bound to one amount, so letting a customer
+ * switch from the 30 EUR model to the 40 EUR one while holding an intent created
+ * for the old total is how a shop charges the wrong price. Sending them back to
+ * the details step is not optional either, since the payment step renders off a
+ * quote that no longer exists.
+ */
+function invalidatePricing(): Pick<OrderState, 'quote' | 'pay' | 'step' | 'attemptId'> {
+  return { quote: IDLE_QUOTE, pay: IDLE_PAY, step: 'details', attemptId: null }
+}
 
 export function initialOrderState(planId: PlanId): OrderState {
   return {
     name: '',
     phone: '',
+    email: '',
     planId,
+    // Cash on delivery is the default: it is the flow that works today, it needs
+    // no third party to be reachable, and it is what most Bulgarian buyers
+    // expect. Card is opt-in.
+    paymentMethod: 'cod',
+    marketingConsent: false,
+    step: 'details',
+    attemptId: null,
     printName: '',
     customization: '',
     message: '',
@@ -126,6 +209,7 @@ export function initialOrderState(planId: PlanId): OrderState {
     notice: null,
     quote: IDLE_QUOTE,
     submit: { status: 'idle' },
+    pay: IDLE_PAY,
   }
 }
 
@@ -143,7 +227,7 @@ export function orderReducer(state: OrderState, action: Action): OrderState {
       return {
         ...state,
         planId: action.planId,
-        quote: IDLE_QUOTE,
+        ...invalidatePricing(),
         errors: without(state.errors, 'model'),
       }
 
@@ -158,7 +242,7 @@ export function orderReducer(state: OrderState, action: Action): OrderState {
       return {
         ...state,
         delivery,
-        quote: pricingRelevant(action.field) ? IDLE_QUOTE : state.quote,
+        ...(pricingRelevant(action.field) ? invalidatePricing() : {}),
         errors: without(state.errors, deliveryErrorField(action.field)),
       }
     }
@@ -239,7 +323,7 @@ export function orderReducer(state: OrderState, action: Action): OrderState {
         ...state,
         delivery,
         notice,
-        quote: IDLE_QUOTE,
+        ...invalidatePricing(),
         errors: without(state.errors, 'city', 'officeCode', 'street', 'streetNum'),
       }
     }
@@ -248,7 +332,7 @@ export function orderReducer(state: OrderState, action: Action): OrderState {
       return {
         ...state,
         delivery: { ...state.delivery, officeCode: action.code },
-        quote: IDLE_QUOTE,
+        ...invalidatePricing(),
         errors: without(state.errors, 'officeCode'),
       }
 
@@ -260,8 +344,88 @@ export function orderReducer(state: OrderState, action: Action): OrderState {
           streetIsFreeform: action.value,
           street: '',
         },
-        quote: IDLE_QUOTE,
+        ...invalidatePricing(),
         errors: without(state.errors, 'street'),
+      }
+
+    case 'setPaymentMethod':
+      // Switching method does not change the price, so the quote survives. The
+      // intent does not: it is card-specific by definition.
+      return {
+        ...state,
+        paymentMethod: action.value,
+        pay: IDLE_PAY,
+        step: 'details',
+        attemptId: null,
+        errors: without(state.errors, 'paymentMethod'),
+      }
+
+    case 'setMarketingConsent':
+      return { ...state, marketingConsent: action.value }
+
+    case 'goToPayment':
+      return { ...state, step: 'payment', attemptId: action.attemptId, pay: IDLE_PAY }
+
+    case 'backToDetails':
+      // Drop the intent as well as the step. The details are about to become
+      // editable again, and the row was written from them.
+      return { ...state, step: 'details', attemptId: null, pay: IDLE_PAY }
+
+    case 'intentStart':
+      return { ...state, pay: { status: 'creating' } }
+
+    case 'intentReady':
+      return {
+        ...state,
+        pay: {
+          status: 'ready',
+          clientSecret: action.clientSecret,
+          orderRef: action.orderRef,
+          total: action.total,
+          lastError: null,
+        },
+      }
+
+    case 'intentError':
+      return {
+        ...state,
+        pay: { status: 'error', message: action.message, retryable: action.retryable },
+      }
+
+    case 'payConfirming':
+      // Only meaningful from 'ready'; anything else is a stray dispatch.
+      return state.pay.status === 'ready'
+        ? {
+            ...state,
+            pay: {
+              status: 'confirming',
+              clientSecret: state.pay.clientSecret,
+              orderRef: state.pay.orderRef,
+              total: state.pay.total,
+            },
+          }
+        : state
+
+    case 'payDeclined':
+      // Back to 'ready' on the same client secret, so another card can be tried
+      // without creating a second PaymentIntent.
+      return state.pay.status === 'confirming'
+        ? {
+            ...state,
+            pay: {
+              status: 'ready',
+              clientSecret: state.pay.clientSecret,
+              orderRef: state.pay.orderRef,
+              total: state.pay.total,
+              lastError: action.message,
+            },
+          }
+        : state
+
+    case 'payError':
+      return {
+        ...state,
+        pay: { status: 'error', message: action.message, retryable: action.retryable },
       }
 
     case 'clearError':
@@ -282,6 +446,7 @@ export function orderReducer(state: OrderState, action: Action): OrderState {
           shipping: action.shipping,
           total: action.total,
           quoteId: action.quoteId,
+          expiresAt: action.expiresAt,
         },
       }
 
@@ -305,7 +470,10 @@ export function toOrderDraft(state: OrderState): OrderDraft {
   return {
     name: state.name,
     phone: state.phone,
+    email: state.email,
     planId: state.planId,
+    paymentMethod: state.paymentMethod,
+    marketingConsent: state.marketingConsent,
     printName: state.planId === 'custom' ? state.printName : undefined,
     customization: state.planId === 'custom' ? state.customization : undefined,
     message: state.message,

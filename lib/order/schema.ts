@@ -11,10 +11,13 @@
 
 import { plans, type PlanId } from '@/lib/data/pricing'
 import { isDeliveryType, type DeliveryType } from '@/lib/econt/dto'
+import { isPaymentMethod, type PaymentMethod } from '@/lib/payments/dto'
 
 export type OrderErrorField =
   | 'name'
   | 'phone'
+  | 'email'
+  | 'paymentMethod'
   | 'model'
   | 'deliveryType'
   | 'city'
@@ -31,6 +34,8 @@ export type OrderErrors = Partial<Record<OrderErrorField, string>>
 
 export const LIMITS = {
   name: 100,
+  // RFC 5321's practical maximum for a whole address.
+  email: 254,
   printName: 30,
   street: 120,
   streetNum: 10,
@@ -45,10 +50,13 @@ export const LIMITS = {
 export type ContactDraft = {
   name: string
   phone: string
+  email: string
   planId: string
+  paymentMethod: string
   printName?: string
   customization?: string
   message?: string
+  marketingConsent?: boolean
 }
 
 /** Where it is going, as chosen in the form. */
@@ -81,6 +89,30 @@ export function normalizePhone(raw: string): string | null {
   return national ? `+359${national[1]}` : null
 }
 
+/**
+ * Normalize an email, or return null.
+ *
+ * Lowercased and trimmed because the database stores it that way and uses it as
+ * the customer's unique key — 'Ivan@x.bg' and 'ivan@x.bg' must not become two
+ * customers. The shape check is deliberately loose: the only authority on
+ * whether an address works is whether mail to it arrives, and over-strict
+ * patterns reject valid addresses far more often than they catch typos.
+ */
+export function normalizeEmail(raw: string): string | null {
+  const email = raw.trim().toLowerCase()
+  if (email.length < 3 || email.length > LIMITS.email) return null
+  if (/\s/.test(email)) return null
+
+  const at = email.indexOf('@')
+  // Must have a local part, a domain, exactly one @, and a dot in the domain.
+  if (at < 1 || at !== email.lastIndexOf('@')) return null
+  const domain = email.slice(at + 1)
+  if (domain.length < 3 || !domain.includes('.')) return null
+  if (domain.startsWith('.') || domain.endsWith('.')) return null
+
+  return email
+}
+
 export function validateContact(draft: ContactDraft): OrderErrors {
   const errors: OrderErrors = {}
 
@@ -97,7 +129,15 @@ export function validateContact(draft: ContactDraft): OrderErrors {
     errors.phone =
       'Моля, въведете валиден български мобилен номер, напр. 0881234567.'
 
+  const email = draft.email.trim()
+  if (!email) errors.email = 'Моля, въведете имейл.'
+  else if (!normalizeEmail(email))
+    errors.email = 'Моля, въведете валиден имейл адрес, напр. ivan@example.com.'
+
   if (!isPlanId(draft.planId)) errors.model = 'Моля, изберете модел.'
+
+  if (!isPaymentMethod(draft.paymentMethod))
+    errors.paymentMethod = 'Моля, изберете начин на плащане.'
 
   const printName = (draft.printName ?? '').trim()
   if (printName.length > LIMITS.printName)
@@ -156,7 +196,10 @@ export function validateDelivery(delivery: DeliveryDraft): OrderErrors {
 export type OrderInput = {
   name: string
   phone: string
+  email: string
   planId: PlanId
+  paymentMethod: PaymentMethod
+  marketingConsent: boolean
   printName: string | null
   customization: string | null
   message: string | null
@@ -174,10 +217,17 @@ export function validateOrder(
   if (Object.keys(errors).length > 0) return { errors }
 
   const phone = normalizePhone(draft.phone)
+  const email = normalizeEmail(draft.email)
   const cityId = draft.delivery.cityId
-  // validateContact/validateDelivery already guarantee both, but narrowing here
+  // validateContact/validateDelivery already guarantee these, but narrowing here
   // keeps OrderInput honest rather than asserting non-null.
-  if (!phone || !cityId || !isPlanId(draft.planId)) {
+  if (
+    !phone ||
+    !email ||
+    !cityId ||
+    !isPlanId(draft.planId) ||
+    !isPaymentMethod(draft.paymentMethod)
+  ) {
     return { errors: { form: 'Моля, проверете данните във формата.' } }
   }
 
@@ -186,7 +236,10 @@ export function validateOrder(
     value: {
       name: draft.name.trim(),
       phone,
+      email,
       planId: draft.planId,
+      paymentMethod: draft.paymentMethod,
+      marketingConsent: draft.marketingConsent === true,
       printName: blankToNull(draft.printName),
       customization: blankToNull(draft.customization),
       message: blankToNull(draft.message),

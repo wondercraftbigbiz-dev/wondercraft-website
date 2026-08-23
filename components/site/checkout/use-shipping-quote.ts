@@ -99,6 +99,9 @@ function apply(dispatch: Dispatch<Action>, response: QuoteResponse): void {
       shipping: response.shipping,
       total: response.total,
       quoteId: response.quoteId,
+      // Forwarded, not dropped: the payment step refuses to open against a stale
+      // quote, and it can only know that if this number survives the hop.
+      expiresAt: response.expiresAt,
     })
     return
   }

@@ -51,7 +51,10 @@ export async function POST(request: Request) {
   const { errors, value } = validateOrder({
     name: String(draft.name ?? ''),
     phone: String(draft.phone ?? ''),
+    email: String(draft.email ?? ''),
     planId: String(draft.planId ?? ''),
+    paymentMethod: String(draft.paymentMethod ?? ''),
+    marketingConsent: draft.marketingConsent === true,
     printName: draft.printName,
     customization: draft.customization,
     message: draft.message,
@@ -74,6 +77,18 @@ export async function POST(request: Request) {
       ok: false,
       message: 'Моля, проверете данните във формата.',
       errors: errors as Record<string, string>,
+    })
+  }
+
+  // This route accepts cash-on-delivery only. A card order is priced and
+  // persisted by /api/payment/intent instead, because it has to exist in the
+  // database before Stripe is called. Deliberately not "harmonised" with that
+  // route: see the note there about why card cannot tolerate a missing quote.
+  if (value.paymentMethod === 'card') {
+    return json({
+      ok: false,
+      message: 'Плащането с карта се извършва в стъпката за плащане.',
+      field: 'paymentMethod',
     })
   }
 
@@ -128,7 +143,9 @@ export async function POST(request: Request) {
       rawOfficeCode: value.delivery.officeCode ?? null,
     }
 
-    const accepted = await submitOrder(value, context)
+    const accepted = await submitOrder(value, context, {
+      userAgent: request.headers.get('user-agent'),
+    })
 
     return json({
       ok: true,

@@ -11,6 +11,7 @@ import {
 import type { OrderResponse } from '@/lib/econt/dto'
 import { findPlan } from '@/lib/data/pricing'
 import { DeliverySection } from './checkout/delivery-section'
+import { PaymentMethodSelect } from './checkout/payment-method-select'
 import { OrderSummary } from './checkout/order-summary'
 import { useShippingQuote } from './checkout/use-shipping-quote'
 import {
@@ -40,10 +41,34 @@ export function ContactModal({
 
   useShippingQuote(state, dispatch)
 
+  // Card needs two things the rest of the form does not: Stripe configured, and
+  // a delivery price. Without a quote there is no total, and a card cannot be
+  // charged for an amount nobody has computed — so the option is offered with a
+  // reason rather than silently doing nothing. Cash on delivery has neither
+  // requirement, which is why it stays the default.
+  const stripeConfigured = Boolean(
+    process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY,
+  )
+  const cardDisabledReason = !stripeConfigured
+    ? 'Плащането с карта е временно недостъпно.'
+    : state.quote.status !== 'ok'
+      ? 'Изберете къде да доставим, за да платите с карта.'
+      : null
+
   // Move focus into the dialog on open.
   useEffect(() => {
     firstFieldRef.current?.focus()
   }, [])
+
+  // A customer can pick card while a quote is live and then change the
+  // destination, which drops the quote and takes card with it. Leaving the
+  // selection on a disabled option would strand them on a step that cannot
+  // proceed, so fall back to the method that always works.
+  useEffect(() => {
+    if (cardDisabledReason && state.paymentMethod === 'card') {
+      dispatch({ type: 'setPaymentMethod', value: 'cod' })
+    }
+  }, [cardDisabledReason, state.paymentMethod])
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -177,6 +202,25 @@ export function ContactModal({
               )}
             </Field>
 
+            <Field label="Имейл" error={errors.email}>
+              {({ describedBy, hasError }) => (
+                <input
+                  name="email"
+                  type="email"
+                  inputMode="email"
+                  autoComplete="email"
+                  maxLength={LIMITS.email}
+                  className="modal-input"
+                  value={state.email}
+                  aria-invalid={hasError || undefined}
+                  aria-describedby={describedBy}
+                  onChange={(e) =>
+                    dispatch({ type: 'setText', field: 'email', value: e.target.value })
+                  }
+                />
+              )}
+            </Field>
+
             <Field label="Модел" error={errors.model}>
               {({ describedBy, hasError }) => (
                 <select
@@ -248,6 +292,15 @@ export function ContactModal({
 
             <hr className="border-border-soft" />
 
+            <PaymentMethodSelect
+              value={state.paymentMethod}
+              onChange={(value) => dispatch({ type: 'setPaymentMethod', value })}
+              disabled={cardDisabledReason ? { card: cardDisabledReason } : undefined}
+              error={errors.paymentMethod}
+            />
+
+            <hr className="border-border-soft" />
+
             <Field label="Съобщение (по избор)" error={errors.message}>
               {({ describedBy }) => (
                 <textarea
@@ -263,6 +316,19 @@ export function ContactModal({
                 />
               )}
             </Field>
+            <label className="flex cursor-pointer items-start gap-2.5 text-sm leading-relaxed text-charcoal-soft">
+              <input
+                name="marketingConsent"
+                type="checkbox"
+                className="mt-0.5 h-4 w-4 shrink-0 accent-salmon-deep"
+                checked={state.marketingConsent}
+                onChange={(e) =>
+                  dispatch({ type: 'setMarketingConsent', value: e.target.checked })
+                }
+              />
+              Искам да получавам новини и оферти по имейл. Може да се отпишете по
+              всяко време.
+            </label>
           </div>
 
         </form>
