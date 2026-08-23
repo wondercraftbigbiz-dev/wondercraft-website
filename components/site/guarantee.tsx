@@ -30,11 +30,11 @@ export function Guarantee() {
                 id="guarantee-heading"
                 className="font-display text-[28px] font-semibold leading-[1.15] tracking-[-0.015em] text-cream md:text-4xl"
               >
-                30 дни право на връщане
+                14 дни право на връщане
               </h2>
               <p className="mt-3 max-w-xl text-base leading-relaxed text-cream/70">
                 Ако къщичката не отговаря на очакванията ви, върнете я в рамките на
-                30 дни и ще възстановим сумата. Без излишни въпроси.
+                14 дни и ще възстановим сумата. Без излишни въпроси.
               </p>
             </div>
             <div className="shrink-0">
