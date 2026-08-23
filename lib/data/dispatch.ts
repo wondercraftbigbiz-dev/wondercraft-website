@@ -41,30 +41,20 @@ export type Dispatch =
       streetOther?: string
     }
 
-// ============================================================================
-// ⚠️  PLACEHOLDER — NOT A REAL DISPATCH POINT.
+// Parcels are handed in at Econt Благоевград Пазара, ул. Даме Груев 15 (office
+// code 2712, city Благоевград id 4). Confirmed by the owner on 2026-08-23
+// against the live office list (GET /api/econt/offices?cityId=4).
 //
-// The owner has not yet decided whether parcels are dropped at an Econt office
-// or collected by a courier. Until they are, this is a guess that produces a
-// label Econt would reject and a quote priced from the wrong origin.
-//
-// To fill in, pick ONE shape and delete the other:
-//
-//   { kind: 'office',  name, phone, officeCode }
-//   { kind: 'address', name, phone, cityName, cityPostCode, street, streetNum }
-//
-// The office code is the one from your Econt contract or from the office list
-// at /api/econt/offices — listing offices deliberately does not require a
-// sender, precisely so it can be used to find this value.
-//
-// Set DISPATCH_IS_PLACEHOLDER to false in the SAME edit. Until you do,
-// assertChargeable() in lib/payments/readiness.ts refuses live card charges.
-// ============================================================================
+// Before this was filled in, every quote failed: Econt rejected the placeholder
+// office code 0000 with `подател: ExInvalidCity`, the quote came back as an
+// error, and the checkout disabled "Продължи към плащане" for every customer.
+// If this office ever closes, take the new code from /api/econt/offices rather
+// than guessing — the code is what Econt resolves the sender city from.
 export const DISPATCH: Dispatch = {
   kind: 'office',
   name: 'WonderCraft',
-  phone: '+359000000000', // PLACEHOLDER
-  officeCode: '0000', // PLACEHOLDER
+  phone: '+359885147348',
+  officeCode: '2712',
 }
 
 /**
@@ -74,4 +64,4 @@ export const DISPATCH: Dispatch = {
  * PARCEL_IS_PLACEHOLDER: once the values look plausible, nothing else in the
  * system can tell a real office code from an invented one.
  */
-export const DISPATCH_IS_PLACEHOLDER = true
+export const DISPATCH_IS_PLACEHOLDER = false
