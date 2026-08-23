@@ -2,9 +2,14 @@
 //
 // Deliberately hand-rolled rather than zod: the surface is a dozen simple
 // fields, the messages have to be Bulgarian anyway, and the client imports this
-// module, so a schema library's bytes would land in the bundle for no gain. The
-// one thing zod would genuinely earn — parsing untrusted webhook JSON — does not
-// exist yet. When Stripe webhooks arrive, reimplement behind these signatures.
+// module, so a schema library's bytes would land in the bundle for no gain.
+//
+// Webhook parsing now exists, and it did NOT come back here. These signatures
+// are validateX(draft) -> { errors, value }: per-field Bulgarian messages for a
+// person looking at a form. A webhook has no field to attribute and no user to
+// show anything to; its job is parseX(unknown) -> T | null. Forcing the two into
+// one shape would have made both worse, so it lives in
+// lib/payments/webhook-parse.ts, still hand-rolled and still zod-free.
 //
 // No React and no server-only imports here, on purpose: both sides run the same
 // code, so a client that skips validation gets the identical messages back.

@@ -42,8 +42,14 @@ under `lib/econt/` and begins with `import 'server-only'`, so an accidental
 client import fails the build instead of leaking. Before deploying, confirm:
 
 ```bash
-pnpm build && grep -r "iasp-dev\|1Asp-dev\|ECONT_PASSWORD" .next/static ; echo "exit=$? (1 = clean)"
+pnpm build
+grep -rqE "sk_live_|sk_test_|rk_live_|whsec_|service_role|iasp-dev|1Asp-dev|ECONT_PASSWORD" .next/static \
+  && echo "LEAK" || echo "clean"
 ```
+
+`pk_test_`/`pk_live_` are deliberately **not** in that pattern: a publishable key
+belongs in the bundle. Including it would make the check fail every time, and a
+check that always fails gets ignored and then deleted.
 
 ### Econt integration
 
@@ -98,6 +104,99 @@ charge. `resolvePrice()` in `lib/econt/shipping.ts` prefers
 `receiverDueAmount` (which folds in cash-on-delivery). Confirm against the real
 API on a preview deploy before launch.
 
+
+### Payments
+
+Card payment is Stripe, embedded in the order modal via the Payment Element.
+Cash on delivery is unchanged and remains the default.
+
+Both methods price identically through `priceOrder()` in
+`lib/order/submit-order.ts` and both persist through `lib/order/repository.ts`.
+They differ in two ways, and both differences are deliberate:
+
+- **A missing delivery quote.** `/api/order` accepts a cash-on-delivery order
+  when Econt is unreachable, because the shop confirms every sale by phone and
+  turning a customer away over a third party's outage loses the sale for nothing.
+  `/api/payment/intent` refuses, because with no quote there is no total and a
+  card cannot be charged an amount nobody computed. Do not "harmonise" the two.
+- **A failed database write.** The cash-on-delivery path logs and carries on. The
+  card path refuses: money with no record of what it was for is the one failure
+  that cannot be cleaned up afterwards.
+
+#### Order of operations, and why
+
+```
+price  ->  compare  ->  INSERT row  ->  create PaymentIntent  ->  attach id
+```
+
+The row is written **before** Stripe is called. That ordering is the whole
+design: the unrecoverable failure is a charge with no order behind it, and this
+inverts it, so the worst case is an unpaid orphan row that nobody was charged for.
+
+It also makes both race conditions harmless. Stripe's webhook routinely arrives
+before the browser's `confirmPayment()` resolves, and customers close the tab
+after paying. In both cases the row already exists and the webhook is a plain
+guarded `UPDATE`.
+
+`attempt_id` covers the gap between the insert and the intent existing, and is
+what makes a duplicate submit find the existing row instead of opening a second
+order. The Stripe idempotency key is derived from it, **not** from the order
+reference: a reference is issued per call, so a reference-keyed request would be
+unique every time and protect nothing.
+
+#### The webhook is the only thing that marks an order paid
+
+`app/api/stripe/webhook/route.ts` verifies the signature against the raw request
+body (`await request.text()` — parsing and re-serializing changes the bytes and
+the HMAC fails), then calls `mark_order_paid()`. That function does the work that
+matters, in the database, under a row lock: it refuses to settle twice, and it
+re-checks the amount against the total this server computed at checkout. A
+notification reporting the wrong amount flags the row rather than being believed.
+
+The browser's `confirmPayment()` result drives what the customer sees and nothing
+else. A client cannot be trusted to declare itself paid, and is not even present
+for the cases that matter most.
+
+The webhook is deliberately **not** rate limited: Stripe retries in bursts from a
+small address range, and a dropped event is a paid order that never gets marked
+paid.
+
+#### Local webhooks
+
+```bash
+stripe login
+stripe listen --forward-to localhost:3000/api/stripe/webhook   # prints a whsec_
+```
+
+That `whsec_` is not the same value as the Dashboard endpoint's, and live mode
+has a third. See `.env.example`.
+
+Test cards (any future expiry, any CVC):
+
+| Card | Behaviour |
+|---|---|
+| `4242 4242 4242 4242` | succeeds |
+| **`4000 0025 0000 3155`** | **3DS challenge every time — the PSD2 path, test this first** |
+| `4000 0084 0000 1629` | authenticates, then declines |
+| `4000 0000 0000 0002` | generic decline |
+| `4000 0000 0000 9995` | insufficient funds |
+
+Under PSD2, a 3DS challenge is the normal path in the EU, not an edge case.
+
+**Deployment Protection blocks the webhook on Vercel preview deploys.** Either
+turn it off for that preview or use a protection-bypass token in the endpoint
+URL. It is the most common reason a webhook works locally and not on preview.
+
+**`api.stripe.com` is blocked in Claude Code's web sandbox**, exactly as
+`*.econt.com` is, and for the same reason. Verify the card path on a preview
+deploy.
+
+#### PCI scope
+
+Card details are entered into Stripe's cross-origin iframe and never touch this
+origin, which keeps the integration in SAQ-A. Nothing in the modal may ever read,
+log or forward a card number.
+
 #### Layout
 
 | Path | What lives there |
@@ -108,7 +207,13 @@ API on a preview deploy before launch.
 | `lib/econt/dto.ts` | the only Econt types the browser sees |
 | `lib/econt/fixtures/` | offline data, including the awkward cases |
 | `lib/order/schema.ts` | validation both the browser and the API run |
-| `lib/order/submit-order.ts` | where an order becomes real — the DB/Stripe seam |
+| `lib/order/submit-order.ts` | pricing, and where a cash-on-delivery order becomes real |
+| `lib/order/repository.ts` | the only module that talks to the orders database |
+| `lib/payments/` | Stripe config, client, intent creation, webhook parsing |
+| `lib/payments/dto.ts` | the only payments types the browser sees |
+| `lib/supabase/admin.ts` | the service-role client, server-only |
+| `app/api/payment/intent`, `app/api/stripe/webhook` | the card routes |
+| `components/site/checkout/payment-step.tsx` | the Payment Element |
 | `app/api/econt/*`, `app/api/order` | the routes |
 | `components/site/checkout/` | the form UI, driven by `order-reducer.ts` |
 
@@ -119,7 +224,17 @@ Two boundaries worth not eroding:
   itself free shipping, and once Stripe is wired up, underpay.
 - **Nothing under `lib/econt/` except `dto.ts` may be imported by a client
   component.** The rest starts with `import 'server-only'`, so a mistake is a
-  build error rather than a leaked password.
+  build error rather than a leaked password. The same holds for `lib/payments/`
+  and `lib/supabase/`.
+- **The PaymentIntent amount is computed server-side** from
+  `findPlan().priceEurCents` plus a fresh `calculateShipping()`. The browser
+  sends `expectedTotalCents` so the server can tell the customer is looking at a
+  stale number, never to decide what to charge.
+- **No personal data in Stripe metadata.** It is visible in the Dashboard and in
+  every export. The quote id is hashed before it goes in, because for address
+  delivery the quote key embeds the street and house number —
+  `scripts/check-payment.ts` asserts this by searching the serialized metadata
+  for the fixture's own details, which is the check that catches it.
 
 Orders are currently written to the logs only — `order.received` for the shape
 and money, `order.contact` for personal data, split so the second can be dropped
@@ -131,6 +246,7 @@ or routed separately. Both are replaced by the database write in the next phase.
 pnpm typecheck     # required: next.config.mjs sets ignoreBuildErrors, so `build` proves nothing about types
 pnpm check:money   # price/currency formatting and BGN↔EUR conversion
 pnpm check:econt   # Econt client, DTO mapping and every fault mode, in fixture mode
+pnpm check:payment # Stripe metadata (incl. the PII denylist), amounts, webhook parsing
 ```
 
 ## Learn More

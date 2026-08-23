@@ -12,6 +12,8 @@ import type { OrderResponse } from '@/lib/econt/dto'
 import { findPlan } from '@/lib/data/pricing'
 import { DeliverySection } from './checkout/delivery-section'
 import { PaymentMethodSelect } from './checkout/payment-method-select'
+import { PaymentStep, payButtonLabel } from './checkout/payment-step'
+import { usePaymentIntent } from './checkout/use-payment-intent'
 import { OrderSummary } from './checkout/order-summary'
 import { useShippingQuote } from './checkout/use-shipping-quote'
 import {
@@ -40,6 +42,7 @@ export function ContactModal({
   const plan = findPlan(planId)
 
   useShippingQuote(state, dispatch)
+  usePaymentIntent(state, dispatch)
 
   // Card needs two things the rest of the form does not: Stripe configured, and
   // a delivery price. Without a quote there is no total, and a card cannot be
@@ -49,6 +52,26 @@ export function ContactModal({
   const stripeConfigured = Boolean(
     process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY,
   )
+  const onPayment = state.step === 'payment'
+  const paying = state.pay.status === 'confirming'
+  // The payment step's button must not be pressable until Stripe has actually
+  // issued a client secret, or it would submit an element that is not mounted.
+  const busy =
+    submitting || paying || (onPayment && state.pay.status !== 'ready')
+  const buttonLabel = submitting
+    ? 'Изпращаме…'
+    : paying
+      ? 'Потвърждаваме…'
+      : onPayment
+        ? state.pay.status === 'ready'
+          ? payButtonLabel({
+              cents: state.pay.total.cents,
+              currency: state.pay.total.currency,
+            })
+          : 'Подготвяме плащането…'
+        : state.paymentMethod === 'card'
+          ? 'Продължи към плащане'
+          : 'Поръчай сега'
   const cardDisabledReason = !stripeConfigured
     ? 'Плащането с карта е временно недостъпно.'
     : state.quote.status !== 'ok'
@@ -70,6 +93,10 @@ export function ContactModal({
     }
   }, [cardDisabledReason, state.paymentMethod])
 
+  function handlePaid(orderRef: string) {
+    dispatch({ type: 'submitOk', orderRef })
+  }
+
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     if (submitting) return
@@ -78,6 +105,13 @@ export function ContactModal({
     const next = { ...validateContact(draft), ...validateDelivery(draft.delivery) }
     dispatch({ type: 'setErrors', errors: next })
     if (hasErrors(next)) return
+
+    // Card orders are not placed here. They are priced, recorded and charged by
+    // /api/payment/intent, which the payment step drives.
+    if (state.paymentMethod === 'card') {
+      dispatch({ type: 'goToPayment', attemptId: crypto.randomUUID() })
+      return
+    }
 
     dispatch({ type: 'submitStart' })
     try {
@@ -111,8 +145,10 @@ export function ContactModal({
 
   return (
     <ModalShell
-      title={submitted ? 'Благодарим ви!' : 'Поръчай сега'}
+      title={submitted ? 'Благодарим ви!' : onPayment ? 'Плащане' : 'Поръчай сега'}
       onClose={onClose}
+      // Locked while Stripe has the payment, including the 3DS window.
+      dismissible={!paying}
       aside={
         submitted ? undefined : (
           // Sticky so the total and the button stay in view if the column
@@ -122,6 +158,15 @@ export function ContactModal({
               productEurCents={plan?.priceEurCents ?? 0}
               quote={state.quote}
             />
+            {state.pay.status === 'error' && (
+              <p
+                role="alert"
+                className="mt-4 flex items-start gap-2 rounded-md border border-salmon-deep bg-salmon/25 px-4 py-3 text-sm leading-relaxed text-charcoal"
+              >
+                <AlertIcon className="mt-0.5 h-5 w-5 shrink-0" aria-hidden="true" />
+                {state.pay.message}
+              </p>
+            )}
             {state.submit.status === 'error' && (
               <p
                 role="alert"
@@ -131,20 +176,40 @@ export function ContactModal({
                 {state.submit.message}
               </p>
             )}
+            {/* One button, three jobs. It stays a single node in the aside and
+                reaches whichever form is showing through form="…", the same
+                mechanism the details form already used to span the CSS layout
+                split. Rendering a second button for the payment step would
+                duplicate this column, and with it OrderSummary's aria-live
+                region — see the note in modal-shell.tsx. */}
             <button
               type="submit"
-              form="order-form"
-              disabled={submitting}
+              form={onPayment ? 'payment-form' : 'order-form'}
+              disabled={busy}
               className="mt-4 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-md border border-border-soft bg-salmon px-6 py-3 font-sans text-base font-semibold text-charcoal shadow-soft transition-all duration-200 ease-[cubic-bezier(0.34,1.56,0.64,1)] hover:-translate-y-0.5 hover:scale-[1.02] hover:bg-salmon-hover hover:shadow-soft-lg active:scale-[0.96] active:duration-100 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0 disabled:hover:scale-100"
             >
-              {submitting && (
+              {busy && (
                 <SpinnerIcon className="h-4 w-4 animate-spin" aria-hidden="true" />
               )}
-              {submitting ? 'Изпращаме…' : 'Поръчай сега'}
+              {buttonLabel}
             </button>
-            <p className="mt-3 text-center text-sm text-charcoal-soft">
-              Ще се свържем с вас, за да потвърдим детайлите.
-            </p>
+
+            {onPayment ? (
+              <button
+                type="button"
+                onClick={() => dispatch({ type: 'backToDetails' })}
+                disabled={paying}
+                className="mt-2 inline-flex min-h-11 w-full items-center justify-center rounded-md border border-transparent px-6 py-2 font-sans text-sm font-semibold text-charcoal-soft underline-offset-4 hover:underline disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:no-underline"
+              >
+                Промени данните
+              </button>
+            ) : (
+              <p className="mt-3 text-center text-sm text-charcoal-soft">
+                {state.paymentMethod === 'card'
+                  ? 'Плащането е защитено и се обработва от Stripe.'
+                  : 'Ще се свържем с вас, за да потвърдим детайлите.'}
+              </p>
+            )}
           </div>
         )
       }
@@ -154,16 +219,27 @@ export function ContactModal({
           orderRef={
             state.submit.status === 'done' ? state.submit.orderRef : ''
           }
+          paid={state.paymentMethod === 'card'}
+          email={state.email}
         />
       ) : (
-        <form
-          id="order-form"
-          onSubmit={handleSubmit}
-          noValidate
+        // One scroll container holding two SIBLING forms. The payment form
+        // cannot be nested inside the details form: nested <form> elements are
+        // invalid HTML and the browser drops the inner one, which would leave
+        // the pay button submitting nothing.
+        <div
           // flex-1 covers the stacked layout; the explicit placement is for the
           // lg grid, where flex sizing no longer applies.
           className="min-h-0 flex-1 overflow-y-auto px-6 py-5 lg:col-start-1 lg:row-start-2"
         >
+          <form id="order-form" onSubmit={handleSubmit} noValidate>
+          {/* Frozen once the payment step opens. Name, phone and address do not
+              change the amount, but they were written to the order row before
+              Stripe was called, so letting them change underneath a live
+              PaymentIntent would leave the row describing a different order than
+              the one being paid for. A fieldset disables the whole subtree
+              without threading a prop through every child. */}
+          <fieldset disabled={onPayment} className="contents">
           <div className="flex flex-col gap-4">
             <Field label="Име" error={errors.name}>
               {({ describedBy, hasError }) => (
@@ -330,14 +406,29 @@ export function ContactModal({
               всяко време.
             </label>
           </div>
+          </fieldset>
+          </form>
 
-        </form>
+          {onPayment && (
+            <div className="mt-5 border-t border-border-soft pt-5">
+              <PaymentStep state={state} dispatch={dispatch} onPaid={handlePaid} />
+            </div>
+          )}
+        </div>
       )}
     </ModalShell>
   )
 }
 
-function SuccessPanel({ orderRef }: { orderRef: string }) {
+function SuccessPanel({
+  orderRef,
+  paid,
+  email,
+}: {
+  orderRef: string
+  paid: boolean
+  email: string
+}) {
   const { requestClose } = useModalShell()
 
   return (
@@ -346,9 +437,16 @@ function SuccessPanel({ orderRef }: { orderRef: string }) {
         <CheckIcon className="h-7 w-7 text-charcoal" aria-hidden="true" />
       </span>
       <p className="mt-5 text-pretty text-base leading-relaxed text-charcoal">
-        Получихме заявката ви. Ще се свържем с вас възможно най-скоро, за да
-        потвърдим поръчката и доставката.
+        {paid
+          ? 'Плащането е успешно. Ще се свържем с вас, за да потвърдим доставката.'
+          : 'Получихме заявката ви. Ще се свържем с вас възможно най-скоро, за да потвърдим поръчката и доставката.'}
       </p>
+      {paid && email && (
+        <p className="mt-2 text-sm text-charcoal-soft">
+          Изпратихме разписка на{' '}
+          <span className="font-semibold text-charcoal">{email}</span>.
+        </p>
+      )}
       {orderRef && (
         <p className="mt-4 text-sm text-charcoal-soft">
           Номер на поръчката:{' '}

@@ -153,6 +153,7 @@ async function persistOrder(
       shipping: priced.shipping,
       provider: 'cod',
       providerOrderId: null,
+      attemptId: null,
       paymentStatus: 'unpaid',
       userAgent,
       productName: priced.plan.name,

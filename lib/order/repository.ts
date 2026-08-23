@@ -44,6 +44,8 @@ type PlaceArgs = {
    * issued one — see attachIntent().
    */
   providerOrderId: string | null
+  /** Stable across the attempt, so a duplicate submit finds this row. */
+  attemptId: string | null
   paymentStatus: 'unpaid' | 'pending'
   userAgent: string | null
   /** Snapshotted at order time, so a later rename does not rewrite history. */
@@ -90,6 +92,7 @@ export async function placeOrder(args: PlaceArgs): Promise<PlacedOrder | null> {
 
     p_payment_provider: args.provider,
     p_provider_order_id: args.providerOrderId,
+    p_attempt_id: args.attemptId,
     p_payment_status: args.paymentStatus,
 
     p_delivery_type: d.type,
@@ -121,8 +124,33 @@ export async function placeOrder(args: PlaceArgs): Promise<PlacedOrder | null> {
   }
 }
 
+/** An attempt already under way, so a duplicate submit does not open a second. */
+export async function findByAttemptId(attemptId: string): Promise<{
+  orderNumber: number
+  providerOrderId: string | null
+  paymentStatus: string
+} | null> {
+  const db = getSupabaseAdmin()
+  if (!db) return null
+
+  const { data, error } = await db
+    .from('orders')
+    .select('order_number, provider_order_id, payment_status')
+    .eq('attempt_id', attemptId)
+    .maybeSingle()
+
+  if (error) throw new Error(`findByAttemptId failed: ${error.message}`)
+  if (!data) return null
+
+  return {
+    orderNumber: Number(data.order_number),
+    providerOrderId: data.provider_order_id,
+    paymentStatus: String(data.payment_status),
+  }
+}
+
 /**
- * Swap the attempt id for the real PaymentIntent id.
+ * Attach the real PaymentIntent id to an attempt.
  *
  * The row is written before Stripe is called, so that a Stripe failure leaves an
  * unpaid orphan rather than a charge with no record. That ordering means the row
@@ -139,7 +167,7 @@ export async function attachIntent(
   const { error } = await db
     .from('orders')
     .update({ provider_order_id: intentId })
-    .eq('provider_order_id', attemptId)
+    .eq('attempt_id', attemptId)
 
   if (error) throw new Error(`attachIntent failed: ${error.message}`)
 }
@@ -175,6 +203,35 @@ export async function markOrderPaid(args: {
     result: (row?.result ?? 'not_found') as SettleResult,
     orderNumber: row?.order_number != null ? Number(row.order_number) : null,
   }
+}
+
+/**
+ * Record a refund against a settled order.
+ *
+ * Guarded on 'paid' rather than 'pending': a refund by definition follows a
+ * successful charge, so this is the mirror image of markOrderUnpaid and must not
+ * share its guard. Also records the amount, since a partial refund leaves the
+ * order partly paid and an operator needs to see which.
+ */
+export async function markOrderRefunded(
+  providerOrderId: string,
+  refunded: Money,
+  raw: unknown,
+): Promise<void> {
+  const db = getSupabaseAdmin()
+  if (!db) return
+
+  const { error } = await db
+    .from('orders')
+    .update({
+      payment_status: 'refunded',
+      refunded_eur: toDecimal(refunded),
+      payment_raw: raw ?? null,
+    })
+    .eq('provider_order_id', providerOrderId)
+    .eq('payment_status', 'paid')
+
+  if (error) throw new Error(`markOrderRefunded failed: ${error.message}`)
 }
 
 /** Record a failed or cancelled attempt. Never downgrades a paid row. */

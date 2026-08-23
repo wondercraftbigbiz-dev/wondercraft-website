@@ -520,6 +520,25 @@ export function quoteKey(state: OrderState): string | null {
   ].join('|')
 }
 
+/**
+ * A stable key for one payable amount, or null when there is nothing to pay for.
+ *
+ * Null unless the customer is actually on the payment step, has chosen card, has
+ * a live quote, and has an attempt id. A changed key voids any client secret
+ * held against the old one — same contract as quoteKey(), one level up.
+ */
+export function intentKey(state: OrderState): string | null {
+  if (state.step !== 'payment') return null
+  if (state.paymentMethod !== 'card') return null
+  if (state.quote.status !== 'ok') return null
+  if (!state.attemptId) return null
+
+  const base = quoteKey(state)
+  if (!base) return null
+
+  return `${base}|${state.quote.quoteId}|${state.quote.total.cents}|${state.attemptId}`
+}
+
 /** Floor, flat and note ride along on the label but never change the price. */
 function pricingRelevant(field: DeliveryTextField): boolean {
   return field === 'cityQuery' || field === 'street' || field === 'streetNum' || field === 'quarter'

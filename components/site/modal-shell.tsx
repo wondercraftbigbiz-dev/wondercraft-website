@@ -55,11 +55,21 @@ export function ModalShell({
   onClose,
   children,
   aside,
+  dismissible = true,
 }: {
   title: string
   onClose: () => void
   children: React.ReactNode
   aside?: React.ReactNode
+  /**
+   * False while an action must not be interrupted — a card payment in flight.
+   *
+   * During a 3DS challenge the customer is looking at Stripe's overlay, not at
+   * this dialog, and a stray Escape or a click on what looks like empty space
+   * would tear down the React tree mid-payment. Blocks Escape, the backdrop and
+   * the close button together; anything less just moves the hole.
+   */
+  dismissible?: boolean
 }) {
   const dialogRef = useRef<HTMLDivElement>(null)
 
@@ -104,7 +114,10 @@ export function ModalShell({
         // update and its effect cleanup synchronously, before this listener
         // runs.
         if (e.defaultPrevented) return
+        // Mid-payment: swallow it rather than closing. Still preventDefault, so
+        // nothing further up treats it as an unhandled Escape.
         e.preventDefault()
+        if (!dismissible) return
         requestClose()
         return
       }
@@ -124,7 +137,7 @@ export function ModalShell({
     }
     document.addEventListener('keydown', onKeyDown)
     return () => document.removeEventListener('keydown', onKeyDown)
-  }, [requestClose])
+  }, [requestClose, dismissible])
 
   const isOpen = isVisible && !isClosing
 
@@ -134,6 +147,7 @@ export function ModalShell({
         isOpen ? 'is-open' : ''
       }`}
       onMouseDown={(e) => {
+        if (!dismissible) return
         if (e.target === e.currentTarget) requestClose()
       }}
     >
@@ -163,7 +177,8 @@ export function ModalShell({
             type="button"
             aria-label="Затвори"
             onClick={requestClose}
-            className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-border-soft bg-cream text-charcoal"
+            disabled={!dismissible}
+            className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-border-soft bg-cream text-charcoal disabled:cursor-not-allowed disabled:opacity-45"
           >
             <CloseIcon className="h-5 w-5" aria-hidden="true" />
           </button>
