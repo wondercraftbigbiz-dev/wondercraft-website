@@ -63,20 +63,37 @@ export function ContactModal({
   // A blocked order is not in progress, and spinning at a customer who simply
   // has not chosen a destination yet tells them the site is thinking when it is
   // waiting for them.
+  const payFailed = onPayment && state.pay.status === 'error'
+  const canRetryPay = payFailed && state.pay.status === 'error' && state.pay.retryable
   const working =
-    paying ||
-    (onPayment && state.pay.status !== 'ready' && state.pay.status !== 'error')
-  const busy = working || Boolean(blockedReason) || state.pay.status === 'error'
+    paying || (onPayment && state.pay.status !== 'ready' && !payFailed)
+  const busy = working || Boolean(blockedReason) || (payFailed && !canRetryPay)
+
   const buttonLabel = paying
     ? 'Потвърждаваме…'
-    : onPayment
-      ? state.pay.status === 'ready'
-        ? payButtonLabel({
-            cents: state.pay.total.cents,
-            currency: state.pay.total.currency,
-          })
-        : 'Подготвяме плащането…'
-      : 'Продължи към плащане'
+    : canRetryPay
+      ? 'Опитайте отново'
+      : payFailed
+        ? 'Плащането е недостъпно'
+        : onPayment
+          ? state.pay.status === 'ready'
+            ? payButtonLabel({
+                cents: state.pay.total.cents,
+                currency: state.pay.total.currency,
+              })
+            : 'Подготвяме плащането…'
+          : 'Продължи към плащане'
+
+  /**
+   * Start the payment over on a fresh attempt.
+   *
+   * A new attempt id changes intentKey(), which is what re-fires the effect that
+   * opens a PaymentIntent. Reusing the old id would find the previous attempt
+   * and hand back the intent that just failed.
+   */
+  function retryPayment() {
+    dispatch({ type: 'goToPayment', attemptId: crypto.randomUUID() })
+  }
 
   // Move focus into the dialog on open.
   useEffect(() => {
@@ -143,8 +160,9 @@ export function ContactModal({
                 duplicate this column, and with it OrderSummary's aria-live
                 region — see the note in modal-shell.tsx. */}
             <button
-              type="submit"
-              form={onPayment ? 'payment-form' : 'order-form'}
+              type={canRetryPay ? 'button' : 'submit'}
+              form={canRetryPay ? undefined : onPayment ? 'payment-form' : 'order-form'}
+              onClick={canRetryPay ? retryPayment : undefined}
               disabled={busy}
               className="mt-4 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-md border border-border-soft bg-salmon px-6 py-3 font-sans text-base font-semibold text-charcoal shadow-soft transition-all duration-200 ease-[cubic-bezier(0.34,1.56,0.64,1)] hover:-translate-y-0.5 hover:scale-[1.02] hover:bg-salmon-hover hover:shadow-soft-lg active:scale-[0.96] active:duration-100 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0 disabled:hover:scale-100"
             >

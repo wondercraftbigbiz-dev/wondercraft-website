@@ -18,6 +18,9 @@ import {
   toEur,
 } from '../lib/money.ts'
 import {
+  PACKED_PARCEL,
+  PARCEL_IS_PLACEHOLDER,
+  isParcelConfigured,
   plans,
   startingPrice,
   startingPriceEurCents,
@@ -95,5 +98,25 @@ const cheapest = Math.min(...plans.map((p) => p.priceEurCents))
 assert.equal(startingPriceEurCents, cheapest)
 assert.equal(money(eur(startingPriceEurCents), true), startingPrice.euro)
 assert.equal(money(toBgn(eur(startingPriceEurCents))), startingPrice.lev)
+
+// --- Parcel ------------------------------------------------------------------
+// Not an assertion about money, but this is the script a human runs before
+// touching prices, which makes it the one place a placeholder cannot hide.
+if (PARCEL_IS_PLACEHOLDER) {
+  console.warn(
+    [
+      '',
+      '  !!  PACKED_PARCEL IS A PLACEHOLDER, NOT A MEASUREMENT.',
+      `      weight ${PACKED_PARCEL.weightKg}kg, ${PACKED_PARCEL.lengthCm}x${PACKED_PARCEL.widthCm}x${PACKED_PARCEL.heightCm}cm`,
+      '      Every delivery quote is currently wrong by an unknown amount, and',
+      '      the shop absorbs the difference on every order.',
+      '      Measure a real packed box, then set PARCEL_IS_PLACEHOLDER = false.',
+      '',
+    ].join('\n'),
+  )
+} else if (!isParcelConfigured()) {
+  // The flag claims measured; the numbers disagree.
+  assert.fail('PARCEL_IS_PLACEHOLDER is false but PACKED_PARCEL is not configured')
+}
 
 console.log('check-money: all assertions passed')

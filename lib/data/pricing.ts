@@ -18,22 +18,44 @@ export type Parcel = {
 }
 
 // ============================================================================
-// TODO(owner): replace with values measured off a real packed (flat-pack) box.
-// Econt charges by weight and by volumetric weight, so wrong numbers here mean
-// wrong delivery prices at checkout — quoted too low, absorbed by us.
+// ⚠️  PLACEHOLDER VALUES — NOT MEASURED. DO NOT SHIP TO LIVE PAYMENTS.
+//
+// These exist so the checkout can be clicked through end to end before a real
+// box has been weighed. They are a guess, and Econt charges by weight AND by
+// volumetric weight, so they WILL produce the wrong delivery price.
+//
+// Understand what changed by filling these in: while every field was 0,
+// isParcelConfigured() was false and the quote failed closed — a wrong price was
+// impossible. With numbers here it fails OPEN: every quote now succeeds and
+// looks authoritative, and any error is absorbed by the shop on every order,
+// silently. That is the whole reason this block was zeroed in the first place.
+//
+// PARCEL_IS_PLACEHOLDER below is the tripwire. Set it to false in the same edit
+// that puts real numbers here, and not before — `pnpm check:money` fails while
+// it disagrees with reality.
 //
 //   Measured by: ______________  on: ____________
 //
-// Until every field is > 0, isParcelConfigured() returns false and the delivery
-// quote fails loudly (see lib/econt/shipping.ts) instead of sending weight: 0
-// to Econt and undercharging every order.
+// Chosen to fit Econt's automat limits (see APS_MAX_PARCEL_HINT in
+// lib/econt/dto.ts: 20kg, 60x40x40) so all three delivery types stay testable.
+// A real flat-packed playhouse may well be longer than 60cm, which would
+// legitimately disable the automat option.
 // ============================================================================
 export const PACKED_PARCEL: Parcel = {
-  weightKg: 0, // TODO
-  lengthCm: 0, // TODO
-  widthCm: 0, // TODO
-  heightCm: 0, // TODO
+  weightKg: 3.2, // PLACEHOLDER
+  lengthCm: 60, // PLACEHOLDER
+  widthCm: 40, // PLACEHOLDER
+  heightCm: 12, // PLACEHOLDER
 }
+
+/**
+ * True while PACKED_PARCEL is a guess rather than a measurement.
+ *
+ * Deliberately a separate flag rather than something inferred: once the numbers
+ * look plausible, nothing else in the system can tell a measured box from an
+ * invented one. Flip it to false only when a real box has been weighed.
+ */
+export const PARCEL_IS_PLACEHOLDER = true
 
 export function isParcelConfigured(parcel: Parcel = PACKED_PARCEL): boolean {
   return (
