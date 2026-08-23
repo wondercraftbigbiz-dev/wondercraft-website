@@ -3,7 +3,7 @@ import 'server-only'
 import { getSupabaseAdmin } from '@/lib/supabase/admin'
 import type { Money } from '@/lib/money'
 import type { OrderInput } from './schema'
-import type { OrderContext } from './submit-order'
+import type { OrderContext } from './pricing'
 
 /**
  * The only module that talks to the orders database.
@@ -36,17 +36,15 @@ type PlaceArgs = {
   context: OrderContext
   product: Money
   shipping: Money | null
-  /** 'cod' or 'card'. */
-  provider: 'cod' | 'stripe'
+  provider: 'stripe'
   /**
-   * Our handle at the provider. For COD there is none. For card this is the
-   * attempt id at insert time, replaced by the PaymentIntent id once Stripe has
-   * issued one — see attachIntent().
+   * Our handle at the provider: null at insert time, replaced by the
+   * PaymentIntent id once Stripe has issued one — see attachIntent().
    */
   providerOrderId: string | null
   /** Stable across the attempt, so a duplicate submit finds this row. */
   attemptId: string | null
-  paymentStatus: 'unpaid' | 'pending'
+  paymentStatus: 'pending'
   userAgent: string | null
   /** Snapshotted at order time, so a later rename does not rewrite history. */
   productName: string
@@ -57,10 +55,10 @@ type PlaceArgs = {
 /**
  * Insert an order and upsert its customer.
  *
- * Returns null when the database is unreachable or unconfigured. Callers must
- * treat that as "log it and carry on", never as a reason to refuse the sale:
- * this shop confirms every order by phone anyway, and losing a customer because
- * Postgres is having a bad minute would be a self-inflicted wound.
+ * Returns null when the database is unreachable or unconfigured, which the
+ * caller MUST treat as fatal. Every order is now paid by card, and taking money
+ * with no record of what it was for is the one failure that cannot be cleaned up
+ * afterwards.
  */
 export async function placeOrder(args: PlaceArgs): Promise<PlacedOrder | null> {
   const db = getSupabaseAdmin()

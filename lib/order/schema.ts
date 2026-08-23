@@ -16,13 +16,11 @@
 
 import { plans, type PlanId } from '@/lib/data/pricing'
 import { isDeliveryType, type DeliveryType } from '@/lib/econt/dto'
-import { isPaymentMethod, type PaymentMethod } from '@/lib/payments/dto'
 
 export type OrderErrorField =
   | 'name'
   | 'phone'
   | 'email'
-  | 'paymentMethod'
   | 'model'
   | 'deliveryType'
   | 'city'
@@ -57,7 +55,6 @@ export type ContactDraft = {
   phone: string
   email: string
   planId: string
-  paymentMethod: string
   printName?: string
   customization?: string
   message?: string
@@ -141,9 +138,6 @@ export function validateContact(draft: ContactDraft): OrderErrors {
 
   if (!isPlanId(draft.planId)) errors.model = 'Моля, изберете модел.'
 
-  if (!isPaymentMethod(draft.paymentMethod))
-    errors.paymentMethod = 'Моля, изберете начин на плащане.'
-
   const printName = (draft.printName ?? '').trim()
   if (printName.length > LIMITS.printName)
     errors.printName = `Името за печат е до ${LIMITS.printName} символа.`
@@ -203,7 +197,6 @@ export type OrderInput = {
   phone: string
   email: string
   planId: PlanId
-  paymentMethod: PaymentMethod
   marketingConsent: boolean
   printName: string | null
   customization: string | null
@@ -226,13 +219,7 @@ export function validateOrder(
   const cityId = draft.delivery.cityId
   // validateContact/validateDelivery already guarantee these, but narrowing here
   // keeps OrderInput honest rather than asserting non-null.
-  if (
-    !phone ||
-    !email ||
-    !cityId ||
-    !isPlanId(draft.planId) ||
-    !isPaymentMethod(draft.paymentMethod)
-  ) {
+  if (!phone || !email || !cityId || !isPlanId(draft.planId)) {
     return { errors: { form: 'Моля, проверете данните във формата.' } }
   }
 
@@ -243,7 +230,6 @@ export function validateOrder(
       phone,
       email,
       planId: draft.planId,
-      paymentMethod: draft.paymentMethod,
       marketingConsent: draft.marketingConsent === true,
       printName: blankToNull(draft.printName),
       customization: blankToNull(draft.customization),

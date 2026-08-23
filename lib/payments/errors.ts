@@ -37,22 +37,22 @@ export function isPaymentError(e: unknown): e is PaymentError {
 }
 
 const FALLBACK =
-  'Плащането с карта е временно недостъпно. Изберете наложен платеж или ни се обадете.'
+  'Плащането е временно недостъпно. Опитайте отново след малко или ни се обадете.'
 
 /**
  * The only path from an error to the customer's screen.
  *
  * `config` and `disabled` share wording with `upstream` on purpose: a customer
- * cannot act on our misconfiguration, and the useful instruction is the same in
- * all three cases — pay on delivery instead. They are logged distinctly so they
- * can be alerted on.
+ * cannot act on our misconfiguration, and with card as the only payment method
+ * the only useful instruction is the same in all three cases — try later, or
+ * call. They are logged distinctly so they can be alerted on.
  */
 export function toPaymentMessageBg(e: unknown): string {
   if (!isPaymentError(e)) return FALLBACK
 
   switch (e.kind) {
     case 'no_quote':
-      return 'Не успяхме да изчислим доставката, затова не можем да приемем плащане с карта. Изберете наложен платеж.'
+      return 'Не успяхме да изчислим цената за доставка, затова не можем да приемем поръчката. Опитайте отново или ни се обадете.'
     case 'repriced':
       return 'Цената на доставката се промени. Проверете новата сума и потвърдете.'
     case 'network':

@@ -93,10 +93,12 @@ credentials in the Preview environment scope. Never point production at demo.
 
 `PACKED_PARCEL` in `lib/data/pricing.ts` is still zeroed, with a TODO. Econt
 prices on weight **and** volumetric weight, so until a real packed box is
-measured the delivery quote fails closed on purpose: the checkout shows
-"по договаряне" and the total is the product price alone. It never invents a
-number, because a number that is too low is absorbed by the shop on every
-order. Filling in that one block turns the live price on.
+measured the delivery quote fails closed on purpose. It never invents a number,
+because a number that is too low is absorbed by the shop on every order.
+
+**Since card is the only payment method, this now blocks every order, not just
+card ones.** No quote means no total, which means nothing to charge, so the
+checkout cannot complete at all. Filling in that one block is what opens the shop.
 
 Also unconfirmed: which field of Econt's `createLabel` response is the amount to
 charge. `resolvePrice()` in `lib/econt/shipping.ts` prefers
@@ -107,21 +109,21 @@ API on a preview deploy before launch.
 
 ### Payments
 
-Card payment is Stripe, embedded in the order modal via the Payment Element.
-Cash on delivery is unchanged and remains the default.
+**Card is the only payment method.** There is no cash on delivery and no offline
+fallback: every order is paid by card, through Stripe, in the order modal.
 
-Both methods price identically through `priceOrder()` in
-`lib/order/submit-order.ts` and both persist through `lib/order/repository.ts`.
-They differ in two ways, and both differences are deliberate:
+That makes the checkout fail closed in three places, all deliberate:
 
-- **A missing delivery quote.** `/api/order` accepts a cash-on-delivery order
-  when Econt is unreachable, because the shop confirms every sale by phone and
-  turning a customer away over a third party's outage loses the sale for nothing.
-  `/api/payment/intent` refuses, because with no quote there is no total and a
-  card cannot be charged an amount nobody computed. Do not "harmonise" the two.
-- **A failed database write.** The cash-on-delivery path logs and carries on. The
-  card path refuses: money with no record of what it was for is the one failure
-  that cannot be cleaned up afterwards.
+- **No Econt quote, no order.** With no delivery price there is no total, and a
+  card cannot be charged an amount nobody computed. While `PACKED_PARCEL` is
+  unmeasured the quote always fails, so **no order can be placed at all** — see
+  "Before this can go live".
+- **No database row, no charge.** `createIntent()` refuses if the order cannot be
+  recorded first. Money with no record of what it was for is the one failure that
+  cannot be cleaned up afterwards.
+- **Econt down means sales stop.** Previously cash on delivery absorbed an Econt
+  outage. Nothing absorbs it now. This is the accepted cost of a single payment
+  path; if it starts to hurt, the fix is a fallback flow, not a guessed price.
 
 #### Order of operations, and why
 
@@ -129,14 +131,13 @@ They differ in two ways, and both differences are deliberate:
 price  ->  compare  ->  INSERT row  ->  create PaymentIntent  ->  attach id
 ```
 
-The row is written **before** Stripe is called. That ordering is the whole
-design: the unrecoverable failure is a charge with no order behind it, and this
-inverts it, so the worst case is an unpaid orphan row that nobody was charged for.
+The row is written **before** Stripe is called. The unrecoverable failure is a
+charge with no order behind it, and this inverts it, so the worst case is an
+unpaid orphan row that nobody was charged for.
 
-It also makes both race conditions harmless. Stripe's webhook routinely arrives
-before the browser's `confirmPayment()` resolves, and customers close the tab
-after paying. In both cases the row already exists and the webhook is a plain
-guarded `UPDATE`.
+It also makes both races harmless. Stripe's webhook routinely arrives before the
+browser's `confirmPayment()` resolves, and customers close the tab after paying.
+In both cases the row already exists and the webhook is a guarded `UPDATE`.
 
 `attempt_id` covers the gap between the insert and the intent existing, and is
 what makes a duplicate submit find the existing row instead of opening a second
@@ -183,13 +184,14 @@ Test cards (any future expiry, any CVC):
 
 Under PSD2, a 3DS challenge is the normal path in the EU, not an edge case.
 
-**Deployment Protection blocks the webhook on Vercel preview deploys.** Either
-turn it off for that preview or use a protection-bypass token in the endpoint
-URL. It is the most common reason a webhook works locally and not on preview.
+**Deployment Protection blocks the webhook on Vercel deploys.** The project has
+Vercel Authentication on with scope `all_except_custom_domains` and no custom
+domain, so every `*.vercel.app` URL returns an SSO login page and Stripe records
+every delivery as failed. Turn it off, or add a custom domain, before registering
+an endpoint.
 
 **`api.stripe.com` is blocked in Claude Code's web sandbox**, exactly as
-`*.econt.com` is, and for the same reason. Verify the card path on a preview
-deploy.
+`*.econt.com` is, and for the same reason. Verify the card path on a deploy.
 
 #### PCI scope
 
@@ -207,14 +209,14 @@ log or forward a card number.
 | `lib/econt/dto.ts` | the only Econt types the browser sees |
 | `lib/econt/fixtures/` | offline data, including the awkward cases |
 | `lib/order/schema.ts` | validation both the browser and the API run |
-| `lib/order/submit-order.ts` | pricing, and where a cash-on-delivery order becomes real |
+| `lib/order/pricing.ts` | authoritative pricing, shared by the quote and the charge |
 | `lib/order/repository.ts` | the only module that talks to the orders database |
 | `lib/payments/` | Stripe config, client, intent creation, webhook parsing |
 | `lib/payments/dto.ts` | the only payments types the browser sees |
 | `lib/supabase/admin.ts` | the service-role client, server-only |
 | `app/api/payment/intent`, `app/api/stripe/webhook` | the card routes |
 | `components/site/checkout/payment-step.tsx` | the Payment Element |
-| `app/api/econt/*`, `app/api/order` | the routes |
+| `app/api/econt/*` | the delivery routes |
 | `components/site/checkout/` | the form UI, driven by `order-reducer.ts` |
 
 Two boundaries worth not eroding:

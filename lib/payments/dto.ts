@@ -9,14 +9,6 @@
 
 import type { MoneyDto } from '@/lib/econt/dto'
 
-export type PaymentMethod = 'card' | 'cod'
-
-export const PAYMENT_METHODS: readonly PaymentMethod[] = ['card', 'cod'] as const
-
-export function isPaymentMethod(v: unknown): v is PaymentMethod {
-  return typeof v === 'string' && (PAYMENT_METHODS as readonly string[]).includes(v)
-}
-
 /**
  * What the browser sends to open a card payment.
  *

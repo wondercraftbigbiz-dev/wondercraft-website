@@ -15,7 +15,6 @@ import {
   readChargeRefund,
   readIntentEvent,
 } from '../lib/payments/webhook-parse.ts'
-import { isPaymentMethod } from '../lib/payments/dto.ts'
 import { addMoney, eur, toBgn } from '../lib/money.ts'
 import { plans } from '../lib/data/pricing.ts'
 
@@ -141,13 +140,6 @@ assert.equal(
   6952,
   'converting the parts separately must round twice and land a stotinka low',
 )
-
-// --- Payment method ---------------------------------------------------------
-assert.ok(isPaymentMethod('card'))
-assert.ok(isPaymentMethod('cod'))
-for (const bad of ['', 'CARD', 'mypos', null, undefined, 3, {}]) {
-  assert.equal(isPaymentMethod(bad), false, `should have rejected ${String(bad)}`)
-}
 
 // --- Webhook parsing --------------------------------------------------------
 // Signature verification proves origin, not shape. Every field below is one

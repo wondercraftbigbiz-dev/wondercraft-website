@@ -101,22 +101,6 @@ export type QuoteFailed = {
 
 export type QuoteResponse = QuoteOk | QuoteFailed
 
-export type OrderOk = {
-  ok: true
-  orderRef: string
-  total: MoneyDto
-  shipping: MoneyDto | null
-}
-
-export type OrderFailed = {
-  ok: false
-  message: string
-  field?: string
-  errors?: Record<string, string>
-}
-
-export type OrderResponse = OrderOk | OrderFailed
-
 /**
  * Automat parcel limits, mirrored client-side so the UI can grey out the
  * automat option before asking the server. The server's copy in constraints.ts

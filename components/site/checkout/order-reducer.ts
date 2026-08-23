@@ -1,6 +1,5 @@
 import { VCity } from '@/lib/bg'
 import type { CityDto, DeliveryType, MoneyDto } from '@/lib/econt/dto'
-import type { PaymentMethod } from '@/lib/payments/dto'
 import type { PlanId } from '@/lib/data/pricing'
 import type { OrderDraft, OrderErrorField, OrderErrors } from '@/lib/order/schema'
 
@@ -60,11 +59,16 @@ export type PayState =
 /** Which half of the modal is showing. */
 export type Step = 'details' | 'payment'
 
+/**
+ * Whether the order has completed.
+ *
+ * Only 'done' beyond idle: the modal no longer posts anything of its own. The
+ * details step moves to payment locally, and everything that can go wrong from
+ * there is a payment failure, which PayState owns.
+ */
 export type SubmitState =
   | { status: 'idle' }
-  | { status: 'submitting' }
   | { status: 'done'; orderRef: string }
-  | { status: 'error'; message: string }
 
 export type DeliveryState = {
   type: DeliveryType
@@ -86,7 +90,6 @@ export type OrderState = {
   phone: string
   email: string
   planId: PlanId
-  paymentMethod: PaymentMethod
   marketingConsent: boolean
   step: Step
   /** Minted once per payment attempt. Null until the payment step is entered. */
@@ -124,7 +127,6 @@ export type Action =
   | { type: 'setText'; field: TextField; value: string }
   | { type: 'setDeliveryText'; field: DeliveryTextField; value: string }
   | { type: 'setPlan'; planId: PlanId }
-  | { type: 'setPaymentMethod'; value: PaymentMethod }
   | { type: 'setMarketingConsent'; value: boolean }
   | { type: 'goToPayment'; attemptId: string }
   | { type: 'backToDetails' }
@@ -155,9 +157,7 @@ export type Action =
   | { type: 'payConfirming' }
   | { type: 'payDeclined'; message: string }
   | { type: 'payError'; message: string; retryable: boolean }
-  | { type: 'submitStart' }
   | { type: 'submitOk'; orderRef: string }
-  | { type: 'submitError'; message: string }
 
 const IDLE_QUOTE: QuoteState = { status: 'idle' }
 const IDLE_PAY: PayState = { status: 'idle' }
@@ -182,10 +182,6 @@ export function initialOrderState(planId: PlanId): OrderState {
     phone: '',
     email: '',
     planId,
-    // Cash on delivery is the default: it is the flow that works today, it needs
-    // no third party to be reachable, and it is what most Bulgarian buyers
-    // expect. Card is opt-in.
-    paymentMethod: 'cod',
     marketingConsent: false,
     step: 'details',
     attemptId: null,
@@ -348,18 +344,6 @@ export function orderReducer(state: OrderState, action: Action): OrderState {
         errors: without(state.errors, 'street'),
       }
 
-    case 'setPaymentMethod':
-      // Switching method does not change the price, so the quote survives. The
-      // intent does not: it is card-specific by definition.
-      return {
-        ...state,
-        paymentMethod: action.value,
-        pay: IDLE_PAY,
-        step: 'details',
-        attemptId: null,
-        errors: without(state.errors, 'paymentMethod'),
-      }
-
     case 'setMarketingConsent':
       return { ...state, marketingConsent: action.value }
 
@@ -453,14 +437,9 @@ export function orderReducer(state: OrderState, action: Action): OrderState {
     case 'quoteError':
       return { ...state, quote: { status: 'error', message: action.message } }
 
-    case 'submitStart':
-      return { ...state, submit: { status: 'submitting' } }
-
     case 'submitOk':
       return { ...state, submit: { status: 'done', orderRef: action.orderRef } }
 
-    case 'submitError':
-      return { ...state, submit: { status: 'error', message: action.message } }
   }
 }
 
@@ -472,7 +451,6 @@ export function toOrderDraft(state: OrderState): OrderDraft {
     phone: state.phone,
     email: state.email,
     planId: state.planId,
-    paymentMethod: state.paymentMethod,
     marketingConsent: state.marketingConsent,
     printName: state.planId === 'custom' ? state.printName : undefined,
     customization: state.planId === 'custom' ? state.customization : undefined,
@@ -529,7 +507,6 @@ export function quoteKey(state: OrderState): string | null {
  */
 export function intentKey(state: OrderState): string | null {
   if (state.step !== 'payment') return null
-  if (state.paymentMethod !== 'card') return null
   if (state.quote.status !== 'ok') return null
   if (!state.attemptId) return null
 

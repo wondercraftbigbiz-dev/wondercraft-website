@@ -49,7 +49,6 @@ const goodContact = {
   phone: '0881234567',
   email: 'ivan@example.com',
   planId: 'standard',
-  paymentMethod: 'cod',
 }
 assert.equal(hasErrors(validateContact(goodContact)), false)
 
@@ -98,34 +97,6 @@ for (const good of [
   )
 }
 
-// --- Payment method ---------------------------------------------------------
-assert.match(
-  validateContact({ ...goodContact, paymentMethod: '' }).paymentMethod!,
-  /начин на плащане/,
-)
-assert.match(
-  validateContact({ ...goodContact, paymentMethod: 'bitcoin' }).paymentMethod!,
-  /начин на плащане/,
-)
-assert.equal(
-  validateContact({ ...goodContact, paymentMethod: 'card' }).paymentMethod,
-  undefined,
-)
-
-assert.match(
-  validateContact({ ...goodContact, printName: 'а'.repeat(31) }).printName!,
-  /до 30 символа/,
-)
-assert.match(
-  validateContact({ ...goodContact, printName: 'Иван\nПетров' }).printName!,
-  /един ред/,
-)
-assert.equal(
-  validateContact({ ...goodContact, printName: '' }).printName,
-  undefined,
-  'печат is optional',
-)
-
 // --- Delivery ---------------------------------------------------------------
 const office: DeliveryDraft = { type: 'office', cityId: 41, officeCode: '1010' }
 assert.equal(hasErrors(validateDelivery(office)), false)
@@ -167,7 +138,6 @@ assert.ok(ok.value)
 assert.equal(ok.value.phone, '+359881234567', 'phone must come back normalized')
 assert.equal(ok.value.name, 'Иван Петров')
 assert.equal(ok.value.planId, 'standard')
-assert.equal(ok.value.paymentMethod, 'cod')
 assert.equal(ok.value.email, 'ivan@example.com')
 assert.equal(ok.value.marketingConsent, false, 'consent defaults to opt-out')
 

@@ -28,8 +28,9 @@ section is deleted. It is not conditional on the task touching payments.
    Dashboard endpoint — test and live signing secrets are never interchangeable).
 3. Set `STRIPE_MODE=live` in Production.
 4. Register the live webhook endpoint at `https://<domain>/api/stripe/webhook`.
-5. Fill in `PACKED_PARCEL` in `lib/data/pricing.ts` (see below) — card checkout
-   is structurally unreachable until this is done.
+5. Fill in `PACKED_PARCEL` in `lib/data/pricing.ts` (see below). Checkout is
+   structurally unreachable until this is done, and with no cash-on-delivery
+   fallback that means no orders at all.
 6. Confirm `resolvePrice()`'s field choice against the real Econt API, per the
    README's "Before this can go live" section.
 7. Run the extended secret-leak grep in the README.
@@ -40,10 +41,12 @@ Delete this section only when live payments are confirmed working in production.
 
 - **`PACKED_PARCEL` in `lib/data/pricing.ts` is still zeroed.** The owner will
   measure a real packed box later. Until then `isParcelConfigured()` is false,
-  `calculateShipping()` throws, every quote fails closed, and the card payment
-  option never renders. This is deliberate and is what makes it safe to ship the
-  payment code to production ahead of the measurement. Do not work around it with
-  an env override: `lib/data/pricing.ts` is reachable from client components, so
+  `calculateShipping()` throws, and every delivery quote fails closed.
+
+  **Card is the only payment method, so this blocks EVERY order.** No quote means
+  no total, which means nothing to charge and no way to complete checkout. The
+  shop cannot take a single order until the box is measured. Do not work around
+  it with an env override: `lib/data/pricing.ts` is reachable from client components, so
   a non-`NEXT_PUBLIC_` read there is `undefined` in the browser and set on the
   server, which is silent client/server divergence in the one module that must
   not diverge.

@@ -5,7 +5,7 @@ import { findCity, findOffice } from '@/lib/econt/nomenclatures'
 import { logFailure, rateLimitGuard } from '@/lib/econt/route-helpers'
 import type { Money } from '@/lib/money'
 import { hasErrors, validateOrder, type OrderDraft } from '@/lib/order/schema'
-import type { OrderContext } from '@/lib/order/submit-order'
+import type { OrderContext } from '@/lib/order/pricing'
 import { getStripeConfig } from '@/lib/payments/config'
 import type { IntentResponse } from '@/lib/payments/dto'
 import { createIntent } from '@/lib/payments/intent'
@@ -22,12 +22,13 @@ const MAX_BODY_BYTES = 8 * 1024
  * and re-priced with the same shared validator, so a bypassed client gets the
  * same Bulgarian messages rather than a divergent second set.
  *
- * One deliberate divergence from /api/order: that route accepts an order when
- * Econt is unreachable, because the shop confirms every sale by phone anyway and
- * turning a customer away over a third party's outage loses the sale for
- * nothing. This route cannot. With no delivery quote there is no total, and a
- * card cannot be charged an amount nobody computed. If these two ever get
- * "harmonised", card customers start paying for free shipping.
+ * This is now the only way an order is placed: card is the sole payment method.
+ *
+ * It fails closed, and that is deliberate. With no Econt quote there is no
+ * total, and a card cannot be charged an amount nobody computed; with no
+ * database write there is no record of what the money was for. Either one
+ * refuses the order rather than guessing. The cost is that an Econt outage stops
+ * sales outright, which is the accepted trade of having no offline fallback.
  */
 export async function POST(request: Request) {
   const limited = rateLimitGuard(request, 'payment')
@@ -41,7 +42,7 @@ export async function POST(request: Request) {
     return json({
       ok: false,
       reason: 'unavailable',
-      message: 'Плащането с карта е временно недостъпно. Изберете наложен платеж.',
+      message: 'Плащането е временно недостъпно. Опитайте отново по-късно или ни се обадете.',
     })
   }
 
@@ -69,7 +70,6 @@ export async function POST(request: Request) {
     phone: String(body.phone ?? ''),
     email: String(body.email ?? ''),
     planId: String(body.planId ?? ''),
-    paymentMethod: 'card',
     marketingConsent: body.marketingConsent === true,
     printName: body.printName,
     customization: body.customization,
