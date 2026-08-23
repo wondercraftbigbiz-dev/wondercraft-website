@@ -25,9 +25,15 @@ export function OrderSummary({
   return (
     <div>
       <dl className="space-y-1">
-        <Row label="Къщичка" value={dual(product)} />
+        {/* Line items are hidden below lg: on a phone this block is pinned in
+            the sheet's footer strip, where every row it keeps is a row the
+            scrolling form loses. The total below carries the mobile case, and
+            the delivery state is still announced through the live region. */}
+        <div className="hidden lg:block">
+          <Row label="Къщичка" value={dual(product)} />
+        </div>
 
-        <div className="flex items-baseline justify-between gap-4 text-sm text-charcoal-soft">
+        <div className="hidden items-baseline justify-between gap-4 text-sm text-charcoal-soft lg:flex">
           <dt className="font-sans">Доставка</dt>
           <dd className="text-right">
             {quote.status === 'idle' && (
@@ -61,20 +67,32 @@ export function OrderSummary({
           </dd>
         </div>
 
-        <div className="mt-3 flex items-baseline justify-between gap-4 border-t border-border-soft pt-3">
+        <div className="flex items-baseline justify-between gap-3 lg:mt-3 lg:border-t lg:border-border-soft lg:pt-3">
           <dt className="font-sans text-base font-semibold text-charcoal">Общо</dt>
+          {/* Stacked below sm: "Общо" plus a four-figure total plus the lev
+              parenthetical is ~289px of min-content against ~264px of strip. */}
           <dd className="text-right">
             <span className="font-display text-2xl font-bold tabular-nums text-charcoal">
               {formatMoney(total)}
             </span>
-            <span className="ml-2 font-sans text-sm font-normal text-charcoal-soft">
+            <span className="ml-2 block font-sans text-sm font-normal text-charcoal-soft sm:inline">
               ({formatMoney(toBgn(total))})
             </span>
           </dd>
         </div>
+
+        {/* The one delivery figure worth keeping on a phone, in place of the
+            three rows above. */}
+        <p className="text-sm text-charcoal-soft lg:hidden">
+          {quote.status === 'idle' && 'Доставка — изберете къде да я доставим'}
+          {quote.status === 'loading' && 'Изчисляваме доставката…'}
+          {quote.status === 'ok' &&
+            `Доставка ${formatMoney(fromDto(quote.shipping))}`}
+          {quote.status === 'error' && 'Доставка — по договаряне'}
+        </p>
       </dl>
 
-      <p className="mt-1 text-right text-xs text-charcoal-soft">
+      <p className="mt-1 hidden text-right text-xs text-charcoal-soft lg:block">
         1 € = {BGN_PER_EUR.toFixed(5).replace('.', ',')} лв.
         {quote.status !== 'ok' && ' · без доставка'}
       </p>

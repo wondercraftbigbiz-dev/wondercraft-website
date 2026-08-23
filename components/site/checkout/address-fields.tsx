@@ -105,10 +105,10 @@ export function AddressFields({
       </Field>
 
       {!noStreetList && (
-        <label className="flex items-start gap-2">
+        <label className="-my-2 flex min-h-11 items-center gap-2.5 py-2">
           <input
             type="checkbox"
-            className="mt-0.5 h-4 w-4 shrink-0 accent-salmon-deep"
+            className="h-5 w-5 shrink-0 accent-salmon-deep"
             checked={delivery.streetIsFreeform}
             onChange={(e) => {
               setStreetQuery('')
@@ -121,7 +121,9 @@ export function AddressFields({
         </label>
       )}
 
-      <div className="grid grid-cols-3 gap-3">
+      {/* Two-up below sm: three tracks give each field ~96px at 360px and
+          ~76px at 320px, which is narrower than the "Апартамент" label above it. */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         <Field label="Номер" error={errors.streetNum}>
           {({ describedBy, hasError }) => (
             <input

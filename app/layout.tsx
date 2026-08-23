@@ -51,6 +51,10 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   themeColor: '#fdf9f4',
   colorScheme: 'light',
+  // Without this every env(safe-area-inset-*) in the stylesheet resolves to 0px
+  // on a notched iPhone, which made the back-to-top button's and the checkout
+  // sheet's bottom insets silent no-ops.
+  viewportFit: 'cover',
 }
 
 export default function RootLayout({

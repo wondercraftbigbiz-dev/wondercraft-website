@@ -47,7 +47,7 @@ export function Field({
         <span
           id={errorId}
           role="alert"
-          className="mt-1 block text-sm font-medium text-salmon-deep"
+          className="mt-1 block text-sm font-medium text-error"
         >
           {error}
         </span>

@@ -28,7 +28,7 @@ export function Benefits() {
       <Reveal>
         <h2
           id="benefits-heading"
-          className="max-w-2xl text-balance font-display text-[28px] font-semibold leading-[1.15] tracking-[-0.015em] text-charcoal md:text-4xl"
+          className="max-w-2xl text-balance font-display text-[26px] font-semibold leading-[1.15] tracking-[-0.015em] sm:text-[30px] text-charcoal md:text-4xl"
         >
           Направена да улесни живота ви
         </h2>

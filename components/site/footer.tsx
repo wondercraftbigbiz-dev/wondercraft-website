@@ -21,22 +21,22 @@ export function Footer() {
           </p>
         </div>
 
-        <nav aria-label="Долна навигация" className="flex flex-wrap gap-x-6 gap-y-2">
+        <nav aria-label="Долна навигация" className="-my-2 flex flex-wrap gap-x-6">
           <a
             href="#pricing"
-            className="link-underline text-sm font-medium text-charcoal hover:text-salmon-deep"
+            className="link-underline inline-flex min-h-11 items-center text-sm font-medium text-charcoal hover:text-salmon-deep"
           >
             Цени
           </a>
           <a
             href="#assembly"
-            className="link-underline text-sm font-medium text-charcoal hover:text-salmon-deep"
+            className="link-underline inline-flex min-h-11 items-center text-sm font-medium text-charcoal hover:text-salmon-deep"
           >
             Сглобяване
           </a>
           <a
             href="#faq"
-            className="link-underline text-sm font-medium text-charcoal hover:text-salmon-deep"
+            className="link-underline inline-flex min-h-11 items-center text-sm font-medium text-charcoal hover:text-salmon-deep"
           >
             Въпроси
           </a>

@@ -15,7 +15,7 @@ export function Hero() {
     <section
       id="hero"
       aria-labelledby="hero-heading"
-      className="px-5 pb-24 pt-10 md:px-8 md:pb-32 md:pt-16"
+      className="px-5 pb-20 pt-8 sm:pb-24 sm:pt-10 md:px-8 md:pb-32 md:pt-16"
     >
       <div className="mx-auto grid w-full max-w-[1200px] items-center gap-10 lg:grid-cols-[0.9fr_1.1fr] lg:gap-16">
         {/* display:contents on small screens lets the two copy blocks below
@@ -37,7 +37,7 @@ export function Hero() {
                 52px is the largest size that still breaks to three lines there. */}
             <h1
               id="hero-heading"
-              className="mt-6 text-balance font-display text-[38px] font-bold leading-[1.02] tracking-[-0.02em] text-charcoal sm:text-[46px] md:text-[54px] lg:text-[52px] xl:text-[64px]"
+              className="mt-6 text-balance font-display text-[34px] font-bold leading-[1.05] tracking-[-0.02em] text-charcoal min-[400px]:text-[38px] sm:text-[46px] sm:leading-[1.02] md:text-[54px] lg:text-[52px] xl:text-[64px]"
             >
               Къщичка за игра, която{' '}
               <em className="italic text-salmon-deep">расте</em> с
@@ -91,16 +91,22 @@ export function Hero() {
             {/* Poster is a 4:5 opaque crop so it fills this box under any
                 fit behaviour. The previous poster (house-hero.png) is 52%
                 transparent — its real content is only 1024x491 — so it left
-                an empty band here no matter what object-fit says. */}
+                an empty band here no matter what object-fit says.
+
+                The frame is shallower than 4:5 on phones: at 360px a 4:5 box is
+                400px tall, which on its own pushes the price and the CTA below
+                the fold on every phone. object-cover crops the 4:5 source to
+                suit. preload drops to metadata so a browser that blocks
+                autoplay (iOS Low Power Mode) does not pull 1.9MB anyway. */}
             <video
               autoPlay
               muted
               loop
               playsInline
-              preload="auto"
+              preload="metadata"
               poster="/images/hero-poster.jpg"
               aria-label="Дете рисува върху картонена къщичка за игра Wondercraft"
-              className="aspect-[4/5] h-auto w-full object-cover"
+              className="aspect-[4/3] h-auto w-full object-cover sm:aspect-[4/5]"
             >
               <source src="/videos/kid-draws-on-house.mp4" type="video/mp4" />
             </video>
@@ -109,7 +115,7 @@ export function Hero() {
           {/* Supporting photo, overlapping like a set-down print — breaks
               the single symmetric media block and tells the "made by hand"
               part of the story right in the hero. */}
-          <div className="absolute -bottom-10 -left-6 hidden w-[42%] -rotate-6 overflow-hidden rounded-lg border-[6px] border-cream shadow-soft-lg sm:block lg:-left-12">
+          <div className="absolute -bottom-6 -left-2 hidden w-[42%] -rotate-6 overflow-hidden rounded-lg border-[6px] border-cream shadow-soft-lg sm:block md:-bottom-10 md:-left-6 lg:-left-12">
             {/* Pre-sized 4:3 crop rather than the 1MB square PNG: next/image
                 runs with `unoptimized: true`, so whatever is referenced here
                 is what ships. 560x420 covers the ~280px slot at 2x. */}

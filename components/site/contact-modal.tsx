@@ -41,7 +41,13 @@ export function ContactModal({
   useShippingQuote(state, dispatch)
 
   // Move focus into the dialog on open.
+  //
+  // Not on a touch pointer: focusing a text field there opens the software
+  // keyboard immediately, so the sheet animates in already half-covered and the
+  // customer never sees the form they are being asked to fill in. The dialog
+  // still traps Tab, and the close button is the first stop.
   useEffect(() => {
+    if (window.matchMedia('(pointer: coarse)').matches) return
     firstFieldRef.current?.focus()
   }, [])
 
@@ -137,7 +143,7 @@ export function ContactModal({
           noValidate
           // flex-1 covers the stacked layout; the explicit placement is for the
           // lg grid, where flex sizing no longer applies.
-          className="min-h-0 flex-1 overflow-y-auto px-6 py-5 lg:col-start-1 lg:row-start-2"
+          className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-5 sm:px-6 lg:col-start-1 lg:row-start-2"
         >
           <div className="flex flex-col gap-4">
             <Field label="Име" error={errors.name}>
@@ -191,7 +197,7 @@ export function ContactModal({
                 >
                   {plans.map((p) => (
                     <option key={p.id} value={p.id}>
-                      {p.name} — {p.euro} ({p.lev})
+                      {p.name} — {p.euro}
                     </option>
                   ))}
                 </select>
@@ -224,7 +230,7 @@ export function ContactModal({
                   {({ describedBy }) => (
                     <textarea
                       name="customization"
-                      rows={2}
+                      rows={3}
                       maxLength={LIMITS.customization}
                       className="modal-input resize-none"
                       value={state.customization}
@@ -252,7 +258,7 @@ export function ContactModal({
               {({ describedBy }) => (
                 <textarea
                   name="message"
-                  rows={2}
+                  rows={3}
                   maxLength={LIMITS.message}
                   className="modal-input resize-none"
                   value={state.message}

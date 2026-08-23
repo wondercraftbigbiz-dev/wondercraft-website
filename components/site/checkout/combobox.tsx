@@ -1,7 +1,16 @@
 'use client'
 
-import { useEffect, useId, useMemo, useRef, useState } from 'react'
+import {
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react'
+import { createPortal } from 'react-dom'
 import { CheckIcon, ChevronDownIcon } from '../icons'
+import { useOptionalModalShell } from '../modal-shell'
 
 export type ComboboxItem = {
   /** Stable identity, used as the React key and for selection comparison. */
@@ -77,7 +86,18 @@ export function Combobox({
 
   const [open, setOpen] = useState(false)
   const [activeIndex, setActiveIndex] = useState(0)
-  const [dropUp, setDropUp] = useState(false)
+  // Fixed-position box for the listbox, in viewport coordinates. See the note on
+  // measurePlacement below for why the list cannot simply be absolute.
+  const [placement, setPlacement] = useState<{
+    left: number
+    width: number
+    top?: number
+    bottom?: number
+    maxHeight: number
+  } | null>(null)
+
+  const shell = useOptionalModalShell()
+  const portalTarget = shell?.popupRef.current ?? null
 
   const filtered = useMemo(
     () => filterItems(items, query, value, maxVisible),
@@ -90,6 +110,27 @@ export function Combobox({
     setActiveIndex((i) => Math.min(i, Math.max(0, filtered.visible.length - 1)))
   }, [filtered.visible.length])
 
+  // A fixed-position list has to be re-measured whenever its anchor moves: the
+  // form scrolling under it, the keyboard opening, the window resizing. Capture
+  // phase so the form's own scroll event is seen without registering on it
+  // directly.
+  useLayoutEffect(() => {
+    if (!open) return
+    const onMove = () => measurePlacement()
+    window.addEventListener('scroll', onMove, true)
+    window.addEventListener('resize', onMove)
+    window.visualViewport?.addEventListener('resize', onMove)
+    window.visualViewport?.addEventListener('scroll', onMove)
+    return () => {
+      window.removeEventListener('scroll', onMove, true)
+      window.removeEventListener('resize', onMove)
+      window.visualViewport?.removeEventListener('resize', onMove)
+      window.visualViewport?.removeEventListener('scroll', onMove)
+    }
+    // measurePlacement only reads refs, so it does not need to be a dependency.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open])
+
   // Scroll the highlighted row into view without moving focus.
   useEffect(() => {
     if (!open) return
@@ -100,15 +141,49 @@ export function Combobox({
 
   function openList() {
     if (disabled) return
-    // One measurement, on open: flip the list above the input when there is
-    // more room up there. No resize observer — the modal does not reflow while
-    // a dropdown is open.
-    const rect = wrapperRef.current?.getBoundingClientRect()
-    if (rect) {
-      const below = window.innerHeight - rect.bottom
-      setDropUp(below < 260 && rect.top > below)
-    }
+    measurePlacement()
     setOpen(true)
+  }
+
+  /**
+   * Size and place the listbox in viewport coordinates.
+   *
+   * The list is rendered into the dialog and positioned `fixed` rather than
+   * absolutely inside this wrapper, because the wrapper lives in the modal's
+   * scrolling form: `overflow-y: auto` clips in both axes, so an absolutely
+   * positioned dropdown was cut off at the bottom edge of the form — on a phone,
+   * where the form is only a few hundred pixels tall, that hid most of the city
+   * list. ModalShell exposes dialogRef precisely so a popup can escape without
+   * going to document.body, which its Tab trap could not see.
+   *
+   * Space is measured against the visual viewport, not `window.innerHeight`:
+   * iOS does not shrink the layout viewport when the software keyboard opens, so
+   * innerHeight over-reports the room below by the height of the keyboard and
+   * the list would never flip — it opened downwards, behind the keyboard, on
+   * every mobile city and street lookup.
+   */
+  function measurePlacement() {
+    const rect = wrapperRef.current?.getBoundingClientRect()
+    if (!rect) return
+
+    const vv = window.visualViewport
+    const viewportTop = vv?.offsetTop ?? 0
+    const viewportBottom = viewportTop + (vv?.height ?? window.innerHeight)
+
+    const GAP = 4
+    const MARGIN = 8
+    const below = viewportBottom - rect.bottom - GAP - MARGIN
+    const above = rect.top - viewportTop - GAP - MARGIN
+    const dropUp = below < 260 && above > below
+
+    setPlacement({
+      left: rect.left,
+      width: rect.width,
+      ...(dropUp
+        ? { bottom: viewportBottom - rect.top + GAP }
+        : { top: rect.bottom + GAP }),
+      maxHeight: Math.max(120, Math.min(256, dropUp ? above : below)),
+    })
   }
 
   function commit(item: ComboboxItem | null) {
@@ -183,6 +258,7 @@ export function Combobox({
         autoCapitalize="off"
         autoCorrect="off"
         spellCheck={false}
+        enterKeyHint="search"
         disabled={disabled}
         className="modal-input pr-9"
         placeholder={placeholder}
@@ -211,10 +287,12 @@ export function Combobox({
         onFocus={() => {
           openList()
           // Let the on-screen keyboard settle before scrolling the field up.
-          window.setTimeout(
-            () => input.current?.scrollIntoView({ block: 'nearest' }),
-            0,
-          )
+          // The iOS keyboard animation is ~250-300ms; a 0ms timeout measured
+          // the viewport it had before the keyboard existed.
+          window.setTimeout(() => {
+            input.current?.scrollIntoView({ block: 'nearest' })
+            measurePlacement()
+          }, 300)
         }}
         onBlur={() => {
           setOpen(false)
@@ -229,74 +307,97 @@ export function Combobox({
         aria-hidden="true"
       />
 
-      {open && (
-        <ul
-          ref={listRef}
-          id={listboxId}
-          role="listbox"
-          className={`absolute left-0 right-0 z-20 max-h-64 overflow-y-auto overscroll-contain rounded-md border border-border-soft bg-cream py-1 shadow-soft-lg ${
-            dropUp ? 'bottom-[calc(100%+4px)]' : 'top-[calc(100%+4px)]'
-          }`}
-        >
-          {loading && (
-            <li className="px-3 py-6 text-center text-sm text-charcoal-soft">
-              Зареждаме…
-            </li>
-          )}
-
-          {!loading && filtered.visible.length === 0 && (
-            <li className="px-3 py-6 text-center text-sm text-charcoal-soft">
-              {emptyMessage}
-            </li>
-          )}
-
-          {!loading &&
-            filtered.visible.map((item, index) => (
-              <li
-                key={item.key}
-                id={`${listboxId}-${index}`}
-                data-index={index}
-                role="option"
-                aria-selected={item.key === value}
-                className={`flex cursor-pointer items-start gap-2 px-3 py-2 text-left ${
-                  index === activeIndex ? 'bg-kraft/60' : ''
-                }`}
-                onMouseEnter={() => setActiveIndex(index)}
-                // mousedown, not click: click fires after blur, which would have
-                // already closed the list.
-                onMouseDown={(e) => {
-                  e.preventDefault()
-                  commit(item)
-                }}
-              >
-                <span className="min-w-0 flex-1">
-                  <span className="block font-sans text-sm text-charcoal">
-                    {item.label}
-                  </span>
-                  {item.meta && (
-                    <span className="mt-0.5 block text-xs text-charcoal-soft">
-                      {item.meta}
-                    </span>
-                  )}
-                </span>
-                {item.key === value && (
-                  <CheckIcon
-                    className="ml-auto mt-0.5 h-4 w-4 shrink-0 text-salmon-deep"
-                    aria-hidden="true"
-                  />
-                )}
+      {open &&
+        placement &&
+        renderInto(
+          portalTarget,
+          <ul
+            ref={listRef}
+            id={listboxId}
+            role="listbox"
+            style={{
+              position: 'fixed',
+              left: placement.left,
+              width: placement.width,
+              top: placement.top,
+              bottom: placement.bottom,
+              maxHeight: placement.maxHeight,
+            }}
+            className="z-50 overflow-y-auto overscroll-contain rounded-md border border-border-soft bg-cream py-1 shadow-soft-lg"
+          >
+            {loading && (
+              <li className="px-3 py-6 text-center text-sm text-charcoal-soft">
+                Зареждаме…
               </li>
-            ))}
+            )}
 
-          {overflowed && (
-            <li className="border-t border-border-soft px-3 py-2 text-xs text-charcoal-soft">
-              Показани са първите {maxVisible} резултата — уточнете търсенето.
-            </li>
-          )}
-        </ul>
-      )}
+            {!loading && filtered.visible.length === 0 && (
+              <li className="px-3 py-6 text-center text-sm text-charcoal-soft">
+                {emptyMessage}
+              </li>
+            )}
+
+            {!loading &&
+              filtered.visible.map((item, index) => (
+                <li
+                  key={item.key}
+                  id={`${listboxId}-${index}`}
+                  data-index={index}
+                  role="option"
+                  aria-selected={item.key === value}
+                  className={`flex min-h-11 cursor-pointer items-start gap-2 px-3 py-2.5 text-left ${
+                    index === activeIndex ? 'bg-kraft/60' : ''
+                  }`}
+                  onMouseEnter={() => setActiveIndex(index)}
+                  // mousedown, not click: click fires after blur, which would have
+                  // already closed the list.
+                  onMouseDown={(e) => {
+                    e.preventDefault()
+                    commit(item)
+                  }}
+                >
+                  <span className="min-w-0 flex-1">
+                    <span className="block font-sans text-sm text-charcoal">
+                      {item.label}
+                    </span>
+                    {item.meta && (
+                      <span className="mt-0.5 block text-xs text-charcoal-soft">
+                        {item.meta}
+                      </span>
+                    )}
+                  </span>
+                  {item.key === value && (
+                    <CheckIcon
+                      className="ml-auto mt-0.5 h-4 w-4 shrink-0 text-salmon-deep"
+                      aria-hidden="true"
+                    />
+                  )}
+                </li>
+              ))}
+
+            {overflowed && (
+              <li className="border-t border-border-soft px-3 py-2 text-xs text-charcoal-soft">
+                Показани са първите {maxVisible} резултата — уточнете търсенето.
+              </li>
+            )}
+          </ul>,
+        )}
     </div>
   )
+}
+
+/**
+ * Render the listbox into the modal's popup layer when there is one, in place
+ * otherwise.
+ *
+ * That layer sits inside the backdrop but outside the sheet, because the sheet's
+ * entrance transform would otherwise become the containing block for this
+ * fixed-position list — putting it at the wrong coordinates — and then clip it
+ * against the sheet's overflow-hidden. Without a modal (a combobox used
+ * anywhere else) it falls back to rendering where it stands.
+ */
+function renderInto(target: HTMLElement | null, node: React.ReactElement) {
+  return target ? createPortal(node, target) : node
 }
 
 /**
@@ -318,10 +419,14 @@ function filterItems(
   // An empty box, or a box still showing the chosen label, lists everything —
   // otherwise re-opening a filled field would show exactly one option.
   const selected = items.find((i) => i.key === value)
-  const listAll = q.length === 0 || (selected && normalize(selected.label) === q)
+  const listAll =
+    q.length === 0 || (selected && normalize(selected.label) === q)
 
   if (listAll) {
-    return { visible: items.slice(0, maxVisible), overflowed: items.length > maxVisible }
+    return {
+      visible: items.slice(0, maxVisible),
+      overflowed: items.length > maxVisible,
+    }
   }
 
   const prefix: ComboboxItem[] = []
@@ -334,7 +439,10 @@ function filterItems(
   }
 
   const all = [...prefix, ...substring]
-  return { visible: all.slice(0, maxVisible), overflowed: all.length > maxVisible }
+  return {
+    visible: all.slice(0, maxVisible),
+    overflowed: all.length > maxVisible,
+  }
 }
 
 function normalize(s: string): string {

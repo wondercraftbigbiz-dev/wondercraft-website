@@ -10,7 +10,7 @@ export function Guarantee() {
     <section
       id="guarantee"
       aria-labelledby="guarantee-heading"
-      className="relative bg-charcoal px-5 py-16 md:py-24"
+      className="relative bg-charcoal px-5 py-14 sm:px-6 sm:py-16 md:py-24"
     >
       <div
         className="perforation-light absolute inset-x-0 top-0 h-px w-full"
@@ -28,7 +28,7 @@ export function Guarantee() {
             <div className="flex-1">
               <h2
                 id="guarantee-heading"
-                className="font-display text-[28px] font-semibold leading-[1.15] tracking-[-0.015em] text-cream md:text-4xl"
+                className="font-display text-[26px] font-semibold leading-[1.15] tracking-[-0.015em] text-cream sm:text-[30px] md:text-4xl"
               >
                 14 дни право на връщане
               </h2>
