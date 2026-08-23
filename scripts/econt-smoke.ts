@@ -147,7 +147,13 @@ async function main(): Promise<void> {
         }),
       (err: unknown) => {
         assert.ok(isEcontError(err) && err.kind === 'config')
-        assert.match(toUserMessageBg(err), /по телефон/)
+        // The customer-facing message must NOT offer to settle the price by
+        // phone. Card is the only payment method, so an unpriced delivery means
+        // the order cannot be placed at all, and promising a call would be a
+        // promise nothing in the system keeps.
+        const message = toUserMessageBg(err)
+        assert.match(message, /доставката/)
+        assert.doesNotMatch(message, /телефон|договаряне/)
         return true
       },
       'an unmeasured parcel must fail as a config error',

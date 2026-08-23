@@ -11,6 +11,10 @@ import type { QuoteState } from './order-reducer'
  * Euro is primary with lev in parentheses, matching the pricing cards, plus the
  * fixed rate — during the changeover a customer checking the arithmetic needs to
  * see it.
+ *
+ * A failed quote states the fact and stops there. What to do about it belongs
+ * beside the button, where the customer is looking when it will not let them
+ * continue, and saying it in both places reads as two separate problems.
  */
 export function OrderSummary({
   productEurCents,
@@ -56,7 +60,7 @@ export function OrderSummary({
             )}
 
             {quote.status === 'error' && (
-              <span className="text-charcoal">по договаряне</span>
+              <span className="text-charcoal-soft">не успяхме да я изчислим</span>
             )}
           </dd>
         </div>
@@ -88,11 +92,6 @@ export function OrderSummary({
         {quote.status === 'error' && quote.message}
       </span>
 
-      {quote.status === 'error' && (
-        <p className="mt-2 text-xs leading-relaxed text-charcoal-soft">
-          {quote.message}
-        </p>
-      )}
     </div>
   )
 }
