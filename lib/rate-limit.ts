@@ -13,7 +13,7 @@ import 'server-only'
  * quote requests carry only a plan id, so nobody can use us as a general-purpose
  * Econt price oracle. Vercel's WAF is the next step if traffic warrants it.
  */
-export type Bucket = 'quote' | 'nomenclature' | 'order'
+export type Bucket = 'quote' | 'nomenclature' | 'order' | 'payment'
 
 type Limit = { windowMs: number; max: number }
 
@@ -23,6 +23,17 @@ const LIMITS: Record<Bucket, Limit[]> = {
     { windowMs: 3_600_000, max: 200 },
   ],
   nomenclature: [{ windowMs: 60_000, max: 60 }],
+  // Looser than `order`, because one customer legitimately hits this more than
+  // once: a reprice, a declined card retried, a 3DS challenge abandoned and
+  // started again. Too tight here locks someone out of paying.
+  //
+  // The Stripe webhook is deliberately NOT rate limited at all. Stripe retries
+  // in bursts from a small address range, and a dropped event is a paid order
+  // that never gets marked paid.
+  payment: [
+    { windowMs: 60_000, max: 10 },
+    { windowMs: 3_600_000, max: 40 },
+  ],
   order: [
     { windowMs: 60_000, max: 5 },
     { windowMs: 3_600_000, max: 20 },

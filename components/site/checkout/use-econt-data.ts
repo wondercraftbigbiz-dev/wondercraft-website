@@ -17,7 +17,7 @@ export type Loadable<T> =
   | { status: 'error'; message: string }
 
 const OFFLINE =
-  'Не успяхме да заредим данните от Еконт. Опитайте отново или продължете — ще потвърдим доставката по телефон.'
+  'Не успяхме да заредим данните от Еконт. Опитайте отново след малко.'
 
 /**
  * The city list, fetched once per page load and shared by every consumer.
