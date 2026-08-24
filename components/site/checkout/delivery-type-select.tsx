@@ -45,7 +45,7 @@ export function DeliveryTypeSelect({
       </legend>
 
       <div
-        className="grid grid-cols-3 gap-2 rounded-md border border-border-soft bg-mist p-1"
+        className="grid grid-cols-3 gap-2 rounded-md border border-border-soft bg-kraft-wash p-1"
         aria-describedby={describedBy}
       >
         {OPTIONS.map(({ value: option, label, Icon }) => {
@@ -65,7 +65,7 @@ export function DeliveryTypeSelect({
               <label
                 htmlFor={`delivery-${option}`}
                 title={reason}
-                className="flex min-h-11 cursor-pointer flex-col items-center justify-center gap-1 rounded-sm px-2 py-2 text-center font-sans text-xs font-semibold text-charcoal-soft transition-colors duration-150 hover:bg-cream peer-checked:bg-salmon peer-checked:text-charcoal peer-checked:shadow-soft peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-jade-ink peer-disabled:cursor-not-allowed peer-disabled:opacity-45 peer-disabled:hover:bg-transparent"
+                className="flex min-h-11 cursor-pointer flex-col items-center justify-center gap-1 rounded-sm px-2 py-2 text-center font-sans text-xs font-semibold text-charcoal-soft transition-colors duration-150 hover:bg-cream peer-checked:bg-salmon peer-checked:text-charcoal peer-checked:shadow-soft peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-salmon-ink peer-disabled:cursor-not-allowed peer-disabled:opacity-45 peer-disabled:hover:bg-transparent"
               >
                 <Icon className="h-5 w-5" aria-hidden={true} />
                 {label}

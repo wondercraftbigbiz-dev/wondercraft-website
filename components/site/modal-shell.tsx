@@ -175,7 +175,7 @@ export function ModalShell({
             // Footer strip below lg, right-hand column from lg up. The tint
             // reads the column as a separate receipt surface once it sits
             // beside the form; as a footer strip it stays flush with the sheet.
-            <div className="shrink-0 border-t border-border-soft bg-cream px-6 py-4 lg:col-start-2 lg:row-start-2 lg:overflow-y-auto lg:border-l lg:border-t-0 lg:bg-mist lg:py-6">
+            <div className="shrink-0 border-t border-border-soft bg-cream px-6 py-4 lg:col-start-2 lg:row-start-2 lg:overflow-y-auto lg:border-l lg:border-t-0 lg:bg-kraft-wash lg:py-6">
               {aside}
             </div>
           )}

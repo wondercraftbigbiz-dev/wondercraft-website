@@ -38,6 +38,18 @@ This is the rule that keeps the page from looking generic. Follow it exactly.
 > **Amber highlights.** Notable but not clickable: featured, rated, guaranteed, sequenced.
 > **Jade affirms.** Included, confirmed, growing, secondary navigation.
 
+### Two documented exceptions
+
+Both are deliberate product decisions, not drift. Do not "correct" them back to jade.
+
+1. **Inside the order modal, salmon carries the secondary-accent role.** Surfaces use the
+   warm `kraft-wash` / `kraft-soft` tiers rather than `mist`, and icons, underlines,
+   checkmarks and focus use `salmon-ink`. The checkout is a committed-purchase surface and
+   keeps the cardboard warmth on purpose. Jade does not appear there at all.
+2. **The hero's italic "расте" is `salmon-ink`**, not `jade-ink`.
+
+Everywhere else on the landing page the three-accent rule holds unchanged.
+
 The failure mode this replaced: one accent doing eight unrelated jobs at once.
 When a colour means everything, it means nothing, and the eye stops finding the
 CTA. If you are about to paint something salmon, first ask whether the visitor
@@ -53,7 +65,8 @@ clicks it. If not, it is amber or jade.
 | `--color-cream` | `#FDF9F4` | page canvas, card surfaces |
 | `--color-kraft` | `#F7E4C6` | cardboard bands (Final CTA, pricing card top edge) |
 | `--color-kraft-wash` | `#FCF1E2` | lighter cardboard wash (Pricing section) |
-| `--color-mist` | `#E8E4E1` | neutral UI chrome: modal aside, control tracks, hover rows |
+| `--color-mist` | `#E8E4E1` | neutral UI chrome outside the order modal |
+| `--color-kraft-soft` | `#FBECD7` | warm selection tier inside the order modal |
 | `--color-jade-tint` | `#E1EEE4` | jade at 20% over cream: badges, icon tiles, info notes |
 | `--color-jade-tint-strong` | `#D6EADE` | jade at 28% over cream: Benefits lead tile |
 | **Ink** | | |
@@ -67,6 +80,7 @@ clicks it. If not, it is amber or jade.
 | `--color-salmon` | `#FAA297` | CTA fill |
 | `--color-salmon-hover` | `#F58A7D` | CTA hover |
 | `--color-salmon-soft` | `#FDE9E3` | alert background tint |
+| `--color-salmon-ink` | `#CE6047` | salmon-family text, icons and focus on light surfaces |
 | **Highlight** | | |
 | `--color-amber` | `#FEC86E` | featured badge, stars, step numbers, guarantee icon |
 | `--color-amber-ink` | `#A9741C` | amber-family icon strokes needing 3:1 |
@@ -111,6 +125,11 @@ Verified by computed WCAG 2.1 relative luminance. AA needs 4.5:1 for body text,
 | amber-ink | cream | 3.8:1 | icons / large text only |
 | error | cream | 5.2:1 | AA |
 | error | salmon-soft | 4.9:1 | AA |
+| salmon-ink | cream | 3.7:1 | icons / large text |
+| salmon-ink | kraft-wash | 3.5:1 | icons / large text |
+| salmon-ink | kraft-soft | 3.4:1 | icons / large text |
+| salmon-ink | mist | 3.1:1 | icons / large text |
+| charcoal-soft | kraft-soft | 5.8:1 | AA |
 | amber | charcoal band | 9.0:1 | AAA |
 | cream | charcoal band | 13.0:1 | AAA |
 
@@ -120,7 +139,15 @@ Verified by computed WCAG 2.1 relative luminance. AA needs 4.5:1 for body text,
   values and the labels use solid `charcoal`; hierarchy comes from size and
   weight, not from a washed-out second colour.
 - **Any accent as body text at its brand value.** Salmon `#FAA297` on cream is
-  1.9:1. Use `jade-ink` or `error` for coloured text; never `salmon` or `amber`.
+  1.9:1. Use `jade-ink`, `salmon-ink` or `error` for coloured text; never `salmon`
+  or `amber`. This holds for the hero word too: it is `salmon-ink #CE6047`, not
+  `#FAA297`.
+- **`salmon-ink` as body-size text.** At 3.7:1 on cream it clears the 3:1 bar for
+  icons and large text only. Body copy stays `charcoal-soft`.
+- **`salmon-ink` alone to signal an error.** It sits 1.43:1 from `error`, so the two
+  reds are not separable by hue. An invalid input carries an inset ring (reading as
+  2px against focus's 1px) plus `text-error` helper text underneath. Never let border
+  colour be the only difference between focused and failed.
 
 ---
 

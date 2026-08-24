@@ -44,6 +44,15 @@
   --color-amber: #fec86e;
   --color-amber-ink: #a9741c;
 
+  /* Warm tier for the order modal. The checkout is a committed-purchase
+     surface and keeps the cardboard warmth rather than neutral chrome. */
+  --color-kraft-soft: #fbecd7;
+
+  /* Salmon-family text, icons and focus on light surfaces. Deepened from brand
+     salmon, which is 1.87:1 on cream and unusable for anything but fills. This
+     value clears 3:1 on cream, kraft-wash, kraft-soft and mist alike. */
+  --color-salmon-ink: #ce6047;
+
   /* Affirm — jade for included/confirmed/growing and secondary navigation.
      jade-ink is jade darkened to clear 4.5:1 for text and icons on cream. */
   --color-jade: #70c3a4;
@@ -100,11 +109,12 @@
     background-repeat: repeat;
   }
 
-  /* Visible focus ring: jade, 2px, offset 3px so it clears pastel fills.
-     Deliberately not salmon — salmon is the CTA fill, and a ring matching
-     the thing it rings is not a ring. */
+  /* Visible focus ring: salmon-ink, 2px, offset 3px so it clears pastel fills.
+     Deliberately the deepened salmon rather than the brand value — the brand
+     salmon is the CTA fill, and at 1.87:1 on cream it would barely register
+     as a ring at all. */
   :focus-visible {
-    outline: 2px solid var(--color-jade-ink);
+    outline: 2px solid var(--color-salmon-ink);
     outline-offset: 3px;
   }
 }
@@ -328,13 +338,19 @@
     transition: border-color 150ms ease-out;
   }
   .modal-input:focus-visible {
-    border-color: var(--color-jade-ink);
+    border-color: var(--color-salmon-ink);
   }
   .modal-input::placeholder {
     color: var(--color-charcoal-soft);
   }
+  /* salmon-ink and error are both reds (1.43:1 apart), so hue alone can no
+     longer tell a focused field from a failed one. The inset ring makes an
+     invalid field read as 2px against focus's 1px — a weight cue, not just a
+     colour one. Inset shadow rather than border-width so validation does not
+     shift the layout. */
   .modal-input[aria-invalid='true'] {
     border-color: var(--color-error);
+    box-shadow: inset 0 0 0 1px var(--color-error);
   }
 }
 

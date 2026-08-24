@@ -41,5 +41,9 @@ The rule that holds the page together:
 > **Amber highlights** (featured, rated, guaranteed, sequenced).
 > **Jade affirms** (included, confirmed, growing, secondary navigation).
 
+**Exception:** inside the order modal salmon takes the secondary-accent role and jade
+does not appear at all (warm `kraft-*` surfaces, `salmon-ink` icons and focus). The hero's
+italic "расте" is `salmon-ink` too. Both are deliberate — see `DESIGN.md`.
+
 Accents at their brand value are too light for text. Use `jade-ink #2F7357` for
 coloured text and `error #B0453A` for errors; never `salmon` or `amber` as body copy.
