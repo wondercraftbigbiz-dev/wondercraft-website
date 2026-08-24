@@ -10,8 +10,10 @@ All copy is Bulgarian; do not translate or rewrite it without being asked.
   lives in the `@theme inline` block of `app/globals.css`; Tailwind generates
   utilities from the `--color-*` names there.
 - **Light-mode-locked on purpose.** Do not add `dark:` variants.
-- `components/ui/button.tsx` is dead code (zero imports) and references shadcn
-  tokens that do not exist in the theme. Do not import it.
+- shadcn is configured (`components.json`) but no primitives are installed. If you
+  add one, note it will arrive referencing shadcn tokens (`bg-primary`, `border-ring`,
+  `destructive`, …) that this theme does not define — restyle it against the tokens
+  in `DESIGN.md` before using it.
 - Checks: `pnpm typecheck`, `pnpm build`. There is no ESLint config in the repo,
   so `pnpm lint` fails on a missing `eslint.config.js` — that is pre-existing.
 

@@ -163,6 +163,15 @@ Two strong full-bleed beats, separated by Testimonials, on a warm cream ground.
 
 ## 7. History
 
-`implementation_update_colors.md` is the previous colour plan. Its values never
-matched what actually shipped, and it specified the mint `#D4F0E7` this system
-replaced. It is kept for history only. **This file supersedes it.**
+An earlier plan, `implementation_update_colors.md`, was removed when this file
+replaced it. Its values never matched what actually shipped (cream, kraft, salmon
+and salmon-hover all differed, and its `--color-teal-accent` was never added), and
+it specified the mint `#D4F0E7` that this system replaced. It is recoverable from
+git history if anyone needs it. **This file is the only current colour spec.**
+
+`public/wondercraft_logo_svg.svg` is on disk but unreferenced, and is **not** a
+brand-true asset: its fills are the pre-refinement logo colours, it includes
+`#87CEEB` sky blue which is not in the palette at all, and its wordmark is live
+`<text>` in Nunito, a font this site does not load. Do not swap it in for the
+raster logo without first recolouring the fills and converting the text to
+outlines. It is kept because it is the artwork the palette was derived from.
