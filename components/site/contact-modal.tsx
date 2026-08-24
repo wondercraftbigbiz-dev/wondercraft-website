@@ -22,6 +22,9 @@ import { AlertIcon, CheckIcon, SpinnerIcon } from './icons'
 import { Field } from './field'
 import { ModalShell, useModalShell } from './modal-shell'
 
+/** The contact fields that validate on blur. */
+type ContactField = 'firstName' | 'lastName' | 'email' | 'phone'
+
 export function ContactModal({
   initialModel,
   onClose,
@@ -44,6 +47,15 @@ export function ContactModal({
   useEffect(() => {
     firstFieldRef.current?.focus()
   }, [])
+
+  // Validate the field the customer just left, so a bad phone or a missing
+  // surname surfaces where it was typed rather than after the whole form is
+  // filled in. Reuses the same validator submit runs and shows only this
+  // field's message; `setText` already clears it again as they retype.
+  function handleBlur(field: ContactField) {
+    const errors = validateContact(toOrderDraft(state))
+    dispatch({ type: 'setFieldError', field, message: errors[field] })
+  }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -140,20 +152,70 @@ export function ContactModal({
           className="min-h-0 flex-1 overflow-y-auto px-6 py-5 lg:col-start-1 lg:row-start-2"
         >
           <div className="flex flex-col gap-4">
-            <Field label="Име" error={errors.name}>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <Field label="Име" error={errors.firstName}>
+                {({ describedBy, hasError }) => (
+                  <input
+                    ref={firstFieldRef}
+                    name="firstName"
+                    type="text"
+                    autoComplete="given-name"
+                    maxLength={LIMITS.firstName}
+                    className="modal-input"
+                    value={state.firstName}
+                    aria-invalid={hasError || undefined}
+                    aria-describedby={describedBy}
+                    onBlur={() => handleBlur('firstName')}
+                    onChange={(e) =>
+                      dispatch({
+                        type: 'setText',
+                        field: 'firstName',
+                        value: e.target.value,
+                      })
+                    }
+                  />
+                )}
+              </Field>
+
+              <Field label="Фамилия" error={errors.lastName}>
+                {({ describedBy, hasError }) => (
+                  <input
+                    name="lastName"
+                    type="text"
+                    autoComplete="family-name"
+                    maxLength={LIMITS.lastName}
+                    className="modal-input"
+                    value={state.lastName}
+                    aria-invalid={hasError || undefined}
+                    aria-describedby={describedBy}
+                    onBlur={() => handleBlur('lastName')}
+                    onChange={(e) =>
+                      dispatch({
+                        type: 'setText',
+                        field: 'lastName',
+                        value: e.target.value,
+                      })
+                    }
+                  />
+                )}
+              </Field>
+            </div>
+
+            <Field label="Имейл" error={errors.email}>
               {({ describedBy, hasError }) => (
                 <input
-                  ref={firstFieldRef}
-                  name="name"
-                  type="text"
-                  autoComplete="name"
-                  maxLength={LIMITS.name}
+                  name="email"
+                  type="email"
+                  inputMode="email"
+                  autoComplete="email"
+                  maxLength={LIMITS.email}
                   className="modal-input"
-                  value={state.name}
+                  value={state.email}
                   aria-invalid={hasError || undefined}
                   aria-describedby={describedBy}
+                  onBlur={() => handleBlur('email')}
                   onChange={(e) =>
-                    dispatch({ type: 'setText', field: 'name', value: e.target.value })
+                    dispatch({ type: 'setText', field: 'email', value: e.target.value })
                   }
                 />
               )}
@@ -170,6 +232,7 @@ export function ContactModal({
                   value={state.phone}
                   aria-invalid={hasError || undefined}
                   aria-describedby={describedBy}
+                  onBlur={() => handleBlur('phone')}
                   onChange={(e) =>
                     dispatch({ type: 'setText', field: 'phone', value: e.target.value })
                   }

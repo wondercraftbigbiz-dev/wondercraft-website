@@ -46,7 +46,9 @@ export type DeliveryState = {
 }
 
 export type OrderState = {
-  name: string
+  firstName: string
+  lastName: string
+  email: string
   phone: string
   planId: PlanId
   printName: string
@@ -61,7 +63,9 @@ export type OrderState = {
 }
 
 export type TextField =
-  | 'name'
+  | 'firstName'
+  | 'lastName'
+  | 'email'
   | 'phone'
   | 'printName'
   | 'customization'
@@ -85,6 +89,8 @@ export type Action =
   | { type: 'selectOffice'; code: string | null }
   | { type: 'setStreetFreeform'; value: boolean }
   | { type: 'clearError'; field: OrderErrorField }
+  /** Set one field's error, or clear it when `message` is undefined. */
+  | { type: 'setFieldError'; field: OrderErrorField; message: string | undefined }
   | { type: 'setErrors'; errors: OrderErrors }
   | { type: 'quoteStart' }
   | {
@@ -103,7 +109,9 @@ const IDLE_QUOTE: QuoteState = { status: 'idle' }
 
 export function initialOrderState(planId: PlanId): OrderState {
   return {
-    name: '',
+    firstName: '',
+    lastName: '',
+    email: '',
     phone: '',
     planId,
     printName: '',
@@ -267,6 +275,19 @@ export function orderReducer(state: OrderState, action: Action): OrderState {
     case 'clearError':
       return { ...state, errors: without(state.errors, action.field) }
 
+    // One field at a time, so blurring an empty form reports only the field the
+    // customer actually left rather than lighting up every row at once.
+    case 'setFieldError': {
+      if (action.message === undefined) {
+        return { ...state, errors: without(state.errors, action.field) }
+      }
+      if (state.errors[action.field] === action.message) return state
+      return {
+        ...state,
+        errors: { ...state.errors, [action.field]: action.message },
+      }
+    }
+
     case 'setErrors':
       return { ...state, errors: action.errors }
 
@@ -303,7 +324,9 @@ export function orderReducer(state: OrderState, action: Action): OrderState {
 export function toOrderDraft(state: OrderState): OrderDraft {
   const d = state.delivery
   return {
-    name: state.name,
+    firstName: state.firstName,
+    lastName: state.lastName,
+    email: state.email,
     phone: state.phone,
     planId: state.planId,
     printName: state.planId === 'custom' ? state.printName : undefined,
