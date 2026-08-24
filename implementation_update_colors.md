@@ -1,3 +1,10 @@
+> **Superseded — kept for history only.**
+>
+> This plan was never fully applied: several of its values (cream, kraft, salmon,
+> salmon-hover) never matched what shipped, and its `--color-teal-accent` was
+> never added. It also specifies the mint `#D4F0E7` that the current system
+> replaced. The live colour system is documented in **`DESIGN.md`**.
+
 # Implementation Plan: Align Website Colors with Wondercraft Brand Palette
 
 This implementation plan outlines the exact updates required to align the Wondercraft website design system, color tokens, typography contrast, logos, and UI components with the official Wondercraft brand palette (derived from the brand logo).
