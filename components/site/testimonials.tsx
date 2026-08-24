@@ -33,7 +33,7 @@ export function Testimonials() {
                 {Array.from({ length: 5 }).map((_, starIndex) => (
                   <StarIcon
                     key={starIndex}
-                    className="h-5 w-5 fill-salmon-deep text-salmon-deep"
+                    className="h-5 w-5 fill-amber text-amber-ink"
                     aria-hidden="true"
                   />
                 ))}

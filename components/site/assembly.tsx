@@ -57,7 +57,7 @@ export function Assembly() {
             delay={i * 100}
             className={i === 1 ? 'md:mt-10' : undefined}
           >
-            <span className="relative z-10 inline-flex h-[72px] w-[72px] items-center justify-center rounded-full border-4 border-cream bg-salmon shadow-soft-lg">
+            <span className="relative z-10 inline-flex h-[72px] w-[72px] items-center justify-center rounded-full border-4 border-cream bg-amber shadow-soft-lg">
               <span className="font-display text-2xl font-bold text-charcoal">
                 {step.number}
               </span>

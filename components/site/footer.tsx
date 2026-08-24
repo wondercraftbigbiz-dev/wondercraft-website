@@ -24,19 +24,19 @@ export function Footer() {
         <nav aria-label="Долна навигация" className="flex flex-wrap gap-x-6 gap-y-2">
           <a
             href="#pricing"
-            className="link-underline text-sm font-medium text-charcoal hover:text-salmon-deep"
+            className="link-underline text-sm font-medium text-charcoal hover:text-jade-ink"
           >
             Цени
           </a>
           <a
             href="#assembly"
-            className="link-underline text-sm font-medium text-charcoal hover:text-salmon-deep"
+            className="link-underline text-sm font-medium text-charcoal hover:text-jade-ink"
           >
             Сглобяване
           </a>
           <a
             href="#faq"
-            className="link-underline text-sm font-medium text-charcoal hover:text-salmon-deep"
+            className="link-underline text-sm font-medium text-charcoal hover:text-jade-ink"
           >
             Въпроси
           </a>

@@ -259,7 +259,7 @@ export function Combobox({
                 role="option"
                 aria-selected={item.key === value}
                 className={`flex cursor-pointer items-start gap-2 px-3 py-2 text-left ${
-                  index === activeIndex ? 'bg-kraft/60' : ''
+                  index === activeIndex ? 'bg-mist' : ''
                 }`}
                 onMouseEnter={() => setActiveIndex(index)}
                 // mousedown, not click: click fires after blur, which would have
@@ -281,7 +281,7 @@ export function Combobox({
                 </span>
                 {item.key === value && (
                   <CheckIcon
-                    className="ml-auto mt-0.5 h-4 w-4 shrink-0 text-salmon-deep"
+                    className="ml-auto mt-0.5 h-4 w-4 shrink-0 text-jade-ink"
                     aria-hidden="true"
                   />
                 )}

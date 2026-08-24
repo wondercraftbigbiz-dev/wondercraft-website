@@ -65,14 +65,14 @@ export function OfficePicker({
 
   if (available.length === 0) {
     return (
-      <div className="rounded-md border border-border-soft bg-sage/60 px-4 py-3">
+      <div className="rounded-md border border-border-soft bg-jade-tint px-4 py-3">
         <p className="text-sm leading-relaxed text-charcoal">
           {cityName ? VCity(cityName) : 'В избрания град'} няма {noun} на Еконт.
         </p>
         <button
           type="button"
           onClick={onSwitchToAddress}
-          className="mt-2 rounded-sm font-sans text-sm font-semibold text-charcoal underline decoration-salmon-deep decoration-2 underline-offset-4"
+          className="mt-2 rounded-sm font-sans text-sm font-semibold text-charcoal underline decoration-jade-ink decoration-2 underline-offset-4"
         >
           Избери доставка до адрес
         </button>
@@ -83,8 +83,8 @@ export function OfficePicker({
   // Collapsed: show what was chosen, with a way back to the list.
   if (selected && !expanded) {
     return (
-      <div className="flex items-start gap-3 rounded-md border border-border-soft-strong bg-kraft/30 p-4 shadow-soft">
-        <Icon className="mt-0.5 h-5 w-5 shrink-0 text-salmon-deep" aria-hidden="true" />
+      <div className="flex items-start gap-3 rounded-md border border-border-soft-strong bg-mist p-4 shadow-soft">
+        <Icon className="mt-0.5 h-5 w-5 shrink-0 text-jade-ink" aria-hidden="true" />
         <div className="min-w-0 flex-1">
           <p className="font-sans text-sm font-semibold text-charcoal">
             {selected.name}
@@ -102,7 +102,7 @@ export function OfficePicker({
         <button
           type="button"
           onClick={() => setExpanded(true)}
-          className="ml-auto shrink-0 rounded-sm px-1 py-0.5 font-sans text-sm font-semibold text-charcoal underline decoration-salmon-deep decoration-2 underline-offset-4 hover:text-charcoal-soft"
+          className="ml-auto shrink-0 rounded-sm px-1 py-0.5 font-sans text-sm font-semibold text-charcoal underline decoration-jade-ink decoration-2 underline-offset-4 hover:text-charcoal-soft"
         >
           Промени
         </button>
@@ -167,7 +167,7 @@ export function OfficePicker({
             />
             <label
               htmlFor={`office-${office.code}`}
-              className="flex cursor-pointer items-start gap-3 rounded-md border border-border-soft bg-cream p-3 transition-colors duration-150 hover:border-border-soft-strong peer-checked:border-border-soft-strong peer-checked:bg-kraft/30 peer-checked:shadow-soft peer-checked:[&>svg]:text-salmon-deep peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-salmon-deep"
+              className="flex cursor-pointer items-start gap-3 rounded-md border border-border-soft bg-cream p-3 transition-colors duration-150 hover:border-border-soft-strong peer-checked:border-border-soft-strong peer-checked:bg-mist peer-checked:shadow-soft peer-checked:[&>svg]:text-jade-ink peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-jade-ink"
             >
               <Icon
                 className="mt-0.5 h-5 w-5 shrink-0 text-charcoal-soft"

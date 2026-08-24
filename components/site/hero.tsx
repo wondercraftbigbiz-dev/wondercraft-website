@@ -24,9 +24,9 @@ export function Hero() {
             collapses them back into a single left-hand column cell. */}
         <div className="contents lg:block">
           <Reveal className="order-1" variant="unfold">
-            <span className="inline-flex items-center gap-2 rounded-full border border-border-soft bg-sage px-3 py-1.5 text-sm font-semibold text-charcoal">
+            <span className="inline-flex items-center gap-2 rounded-full border border-border-soft bg-jade-tint px-3 py-1.5 text-sm font-semibold text-charcoal">
               <LeafIcon
-                className="float-loop h-4 w-4 text-salmon-deep"
+                className="float-loop h-4 w-4 text-jade-ink"
                 aria-hidden="true"
               />
               100% рециклиран картон
@@ -40,7 +40,7 @@ export function Hero() {
               className="mt-6 text-balance font-display text-[38px] font-bold leading-[1.02] tracking-[-0.02em] text-charcoal sm:text-[46px] md:text-[54px] lg:text-[52px] xl:text-[64px]"
             >
               Къщичка за игра, която{' '}
-              <em className="italic text-salmon-deep">расте</em> с
+              <em className="italic text-jade-ink">расте</em> с
               въображението
             </h1>
           </Reveal>
@@ -67,7 +67,7 @@ export function Hero() {
               {trustPoints.map(({ Icon, label }) => (
                 <li key={label} className="inline-flex items-center gap-1.5">
                   <Icon
-                    className="h-4 w-4 shrink-0 text-salmon-deep"
+                    className="h-4 w-4 shrink-0 text-jade-ink"
                     aria-hidden="true"
                   />
                   {label}
