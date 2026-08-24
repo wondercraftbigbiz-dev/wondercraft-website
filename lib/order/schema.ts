@@ -13,7 +13,9 @@ import { plans, type PlanId } from '@/lib/data/pricing'
 import { isDeliveryType, type DeliveryType } from '@/lib/econt/dto'
 
 export type OrderErrorField =
-  | 'name'
+  | 'firstName'
+  | 'lastName'
+  | 'email'
   | 'phone'
   | 'model'
   | 'deliveryType'
@@ -30,7 +32,10 @@ export type OrderErrorField =
 export type OrderErrors = Partial<Record<OrderErrorField, string>>
 
 export const LIMITS = {
-  name: 100,
+  firstName: 50,
+  lastName: 50,
+  /** The RFC 5321 maximum for a whole address. */
+  email: 254,
   printName: 30,
   street: 120,
   streetNum: 10,
@@ -43,7 +48,9 @@ export const LIMITS = {
 
 /** Contact details, as typed into the form. */
 export type ContactDraft = {
-  name: string
+  firstName: string
+  lastName: string
+  email: string
   phone: string
   planId: string
   printName?: string
@@ -81,15 +88,60 @@ export function normalizePhone(raw: string): string | null {
   return national ? `+359${national[1]}` : null
 }
 
+/**
+ * Does this look like one part of a person's name?
+ *
+ * Unicode-aware rather than [A-Za-z]: the shop sells in Bulgaria, so Cyrillic is
+ * the common case and a Latin-only rule would reject most real customers.
+ * Allows the punctuation names actually contain — "Ана-Мария", "О'Брайън",
+ * "Ван дер Берг" — while rejecting digits, symbols and a lone initial.
+ */
+const NAME_PART = /^\p{L}[\p{L}\p{M}]*(?:[ \-'’]\p{L}[\p{L}\p{M}]*)*$/u
+
+export function isNamePart(raw: string): boolean {
+  const value = raw.trim()
+  return value.length >= 2 && NAME_PART.test(value)
+}
+
+/**
+ * Normalize an email address, or return null.
+ *
+ * A format check, not a proof of delivery — only sending to the address proves
+ * that, and this runs while someone is typing. So it catches what customers
+ * actually get wrong (missing @, a domain with no dot, a stray space) and does
+ * not attempt RFC 5322, whose permitted grammar rejects nothing a customer would
+ * plausibly mean.
+ *
+ * Lowercased on the way out: no mail provider treats mailboxes as
+ * case-sensitive, and one canonical form is what a confirmation email wants.
+ */
+const EMAIL = /^[^\s@]+@[^\s@.]+(?:\.[^\s@.]+)+$/
+
+export function normalizeEmail(raw: string): string | null {
+  const email = raw.trim()
+  if (email.length > LIMITS.email) return null
+  return EMAIL.test(email) ? email.toLowerCase() : null
+}
+
 export function validateContact(draft: ContactDraft): OrderErrors {
   const errors: OrderErrors = {}
 
-  const name = draft.name.trim()
-  if (!name) errors.name = 'Моля, въведете име.'
-  else if (name.length < 2 || !/\p{L}/u.test(name))
-    errors.name = 'Моля, въведете пълното си име.'
-  else if (name.length > LIMITS.name)
-    errors.name = `Името е до ${LIMITS.name} символа.`
+  const firstName = draft.firstName.trim()
+  if (!firstName) errors.firstName = 'Моля, въведете име.'
+  else if (firstName.length > LIMITS.firstName)
+    errors.firstName = `Името е до ${LIMITS.firstName} символа.`
+  else if (!isNamePart(firstName)) errors.firstName = 'Моля, въведете валидно име.'
+
+  const lastName = draft.lastName.trim()
+  if (!lastName) errors.lastName = 'Моля, въведете фамилия.'
+  else if (lastName.length > LIMITS.lastName)
+    errors.lastName = `Фамилията е до ${LIMITS.lastName} символа.`
+  else if (!isNamePart(lastName)) errors.lastName = 'Моля, въведете валидна фамилия.'
+
+  const email = draft.email.trim()
+  if (!email) errors.email = 'Моля, въведете имейл.'
+  else if (!normalizeEmail(email))
+    errors.email = 'Моля, въведете валиден имейл, напр. ivan@example.com.'
 
   const phone = draft.phone.trim()
   if (!phone) errors.phone = 'Моля, въведете телефон.'
@@ -154,7 +206,11 @@ export function validateDelivery(delivery: DeliveryDraft): OrderErrors {
 
 /** Everything the server needs, normalized and safe to act on. */
 export type OrderInput = {
+  firstName: string
+  lastName: string
+  /** The two parts joined — Econt and the logs both want one full name. */
   name: string
+  email: string
   phone: string
   planId: PlanId
   printName: string | null
@@ -174,17 +230,23 @@ export function validateOrder(
   if (Object.keys(errors).length > 0) return { errors }
 
   const phone = normalizePhone(draft.phone)
+  const email = normalizeEmail(draft.email)
   const cityId = draft.delivery.cityId
-  // validateContact/validateDelivery already guarantee both, but narrowing here
-  // keeps OrderInput honest rather than asserting non-null.
-  if (!phone || !cityId || !isPlanId(draft.planId)) {
+  const firstName = draft.firstName.trim()
+  const lastName = draft.lastName.trim()
+  // validateContact/validateDelivery already guarantee all of these, but
+  // narrowing here keeps OrderInput honest rather than asserting non-null.
+  if (!phone || !email || !cityId || !isPlanId(draft.planId)) {
     return { errors: { form: 'Моля, проверете данните във формата.' } }
   }
 
   return {
     errors: {},
     value: {
-      name: draft.name.trim(),
+      firstName,
+      lastName,
+      name: `${firstName} ${lastName}`,
+      email,
       phone,
       planId: draft.planId,
       printName: blankToNull(draft.printName),

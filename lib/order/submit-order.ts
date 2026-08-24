@@ -152,6 +152,7 @@ async function persistOrder(record: {
       evt: 'order.contact',
       orderRef,
       name: input.name,
+      email: input.email,
       phone: input.phone,
       printName: input.printName,
       customization: input.customization,

@@ -7,6 +7,7 @@ import { VCity, vCity } from '../lib/bg.ts'
 import {
   LIMITS,
   hasErrors,
+  normalizeEmail,
   normalizePhone,
   validateContact,
   validateDelivery,
@@ -43,18 +44,71 @@ for (const raw of [
   assert.equal(normalizePhone(raw), null, `should have rejected ${raw}`)
 }
 
+// --- Email normalization ----------------------------------------------------
+assert.equal(normalizeEmail('ivan@example.com'), 'ivan@example.com')
+// Canonicalized: mailboxes are not case-sensitive anywhere in practice.
+assert.equal(normalizeEmail('  IVAN@Example.COM '), 'ivan@example.com')
+assert.equal(normalizeEmail('ivan.petrov+поръчка@example.co.uk'), 'ivan.petrov+поръчка@example.co.uk')
+assert.equal(normalizeEmail('иван@example.bg'), 'иван@example.bg')
+
+for (const raw of [
+  '',
+  'ivan',
+  'ivan@',
+  '@example.com',
+  'ivan@example', // no dot in the domain
+  'ivan@example..com', // empty label
+  'ivan @example.com',
+  'ivan@exa mple.com',
+  'ivan@@example.com',
+  `${'и'.repeat(LIMITS.email)}@example.com`, // over the length cap
+]) {
+  assert.equal(normalizeEmail(raw), null, `should have rejected ${raw}`)
+}
+
 // --- Contact ----------------------------------------------------------------
-const goodContact = { name: 'Иван Петров', phone: '0881234567', planId: 'standard' }
+const goodContact = {
+  firstName: 'Иван',
+  lastName: 'Петров',
+  email: 'ivan@example.com',
+  phone: '0881234567',
+  planId: 'standard',
+}
 assert.equal(hasErrors(validateContact(goodContact)), false)
 
-assert.match(validateContact({ ...goodContact, name: '' }).name!, /въведете име/)
-assert.match(validateContact({ ...goodContact, name: '  ' }).name!, /въведете име/)
-assert.match(validateContact({ ...goodContact, name: 'И' }).name!, /пълното/)
-assert.match(validateContact({ ...goodContact, name: '123' }).name!, /пълното/)
+// Both parts of the name are required — a first name alone is not enough.
+assert.match(validateContact({ ...goodContact, firstName: '' }).firstName!, /въведете име/)
+assert.match(validateContact({ ...goodContact, firstName: '  ' }).firstName!, /въведете име/)
+assert.match(validateContact({ ...goodContact, lastName: '' }).lastName!, /въведете фамилия/)
+assert.match(validateContact({ ...goodContact, lastName: '   ' }).lastName!, /въведете фамилия/)
+
+// A lone initial, digits or symbols are not a name.
+assert.match(validateContact({ ...goodContact, firstName: 'И' }).firstName!, /валидно име/)
+assert.match(validateContact({ ...goodContact, firstName: '123' }).firstName!, /валидно име/)
+assert.match(validateContact({ ...goodContact, firstName: 'Иван1' }).firstName!, /валидно име/)
+assert.match(validateContact({ ...goodContact, lastName: '!!' }).lastName!, /валидна фамилия/)
+
+// Real names keep their punctuation, in either script.
+for (const name of ['Ана-Мария', "О'Брайън", 'Ван дер Берг', 'Jean-Luc', 'Иван']) {
+  assert.equal(
+    validateContact({ ...goodContact, firstName: name }).firstName,
+    undefined,
+    `should have accepted ${name}`,
+  )
+}
+
 assert.match(
-  validateContact({ ...goodContact, name: 'и'.repeat(LIMITS.name + 1) }).name!,
-  /до 100 символа/,
+  validateContact({ ...goodContact, firstName: 'и'.repeat(LIMITS.firstName + 1) }).firstName!,
+  /до 50 символа/,
 )
+assert.match(
+  validateContact({ ...goodContact, lastName: 'и'.repeat(LIMITS.lastName + 1) }).lastName!,
+  /до 50 символа/,
+)
+
+assert.match(validateContact({ ...goodContact, email: '' }).email!, /въведете имейл/)
+assert.match(validateContact({ ...goodContact, email: 'ivan@example' }).email!, /валиден имейл/)
+
 assert.match(validateContact({ ...goodContact, phone: '' }).phone!, /въведете телефон/)
 assert.match(validateContact({ ...goodContact, phone: '029876543' }).phone!, /мобилен/)
 assert.match(validateContact({ ...goodContact, planId: 'nope' }).model!, /изберете модел/)
@@ -112,6 +166,10 @@ const ok = validateOrder({ ...goodContact, delivery: office })
 assert.equal(hasErrors(ok.errors), false)
 assert.ok(ok.value)
 assert.equal(ok.value.phone, '+359881234567', 'phone must come back normalized')
+assert.equal(ok.value.email, 'ivan@example.com')
+assert.equal(ok.value.firstName, 'Иван')
+assert.equal(ok.value.lastName, 'Петров')
+// Econt and the order log both want one full name, so it is derived once here.
 assert.equal(ok.value.name, 'Иван Петров')
 assert.equal(ok.value.planId, 'standard')
 assert.equal(ok.value.printName, null, 'blank optional fields normalize to null')
@@ -131,10 +189,10 @@ assert.equal(trimmed.value?.message, null)
 // whole form in one pass rather than one field per submit.
 const both = validateOrder({
   ...goodContact,
-  name: '',
+  lastName: '',
   delivery: { ...office, officeCode: null },
 })
-assert.ok(both.errors.name && both.errors.officeCode)
+assert.ok(both.errors.lastName && both.errors.officeCode)
 assert.equal(both.value, undefined, 'no value when invalid')
 
 // --- Bulgarian preposition agreement ---------------------------------------

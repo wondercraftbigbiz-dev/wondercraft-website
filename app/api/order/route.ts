@@ -49,7 +49,9 @@ export async function POST(request: Request) {
   // The same validator the browser ran, so a bypassed client gets the same
   // messages rather than a divergent second set.
   const { errors, value } = validateOrder({
-    name: String(draft.name ?? ''),
+    firstName: String(draft.firstName ?? ''),
+    lastName: String(draft.lastName ?? ''),
+    email: String(draft.email ?? ''),
     phone: String(draft.phone ?? ''),
     planId: String(draft.planId ?? ''),
     printName: draft.printName,
