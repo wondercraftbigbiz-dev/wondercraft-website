@@ -20,9 +20,10 @@ const MAX_BODY_BYTES = 8 * 1024
  * is trusted, and the total shown to them was computed from a quote that may
  * have expired.
  *
- * This phase has no database and no payment — submitOrder logs the order and
- * returns a reference. The customer still gets the "we'll call you" flow the
- * shop already runs on.
+ * submitOrder persists the order and opens a Stripe PaymentIntent; the
+ * response carries a client secret so the browser can collect payment with a
+ * Stripe Payment Element. A human still calls to confirm delivery details —
+ * this only replaces the "pay by phone" step.
  */
 export async function POST(request: Request) {
   const limited = rateLimitGuard(request, 'order')
@@ -51,6 +52,8 @@ export async function POST(request: Request) {
   const { errors, value } = validateOrder({
     name: String(draft.name ?? ''),
     phone: String(draft.phone ?? ''),
+    email: String(draft.email ?? ''),
+    attemptId: String(draft.attemptId ?? ''),
     planId: String(draft.planId ?? ''),
     printName: draft.printName,
     customization: draft.customization,
@@ -128,13 +131,18 @@ export async function POST(request: Request) {
       rawOfficeCode: value.delivery.officeCode ?? null,
     }
 
-    const accepted = await submitOrder(value, context)
+    const accepted = await submitOrder(
+      value,
+      context,
+      request.headers.get('user-agent'),
+    )
 
     return json({
       ok: true,
       orderRef: accepted.orderRef,
       total: toDto(accepted.total),
       shipping: accepted.shipping ? toDto(accepted.shipping) : null,
+      clientSecret: accepted.clientSecret,
     })
   } catch (error) {
     logFailure(error)

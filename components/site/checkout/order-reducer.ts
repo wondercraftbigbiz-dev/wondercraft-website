@@ -25,8 +25,15 @@ export type QuoteState =
   | { status: 'error'; message: string }
 
 export type SubmitState =
+  /** Placing the order server-side: validate, re-price, create the PaymentIntent. */
   | { status: 'idle' }
   | { status: 'submitting' }
+  /**
+   * Order placed, unpaid. The Payment Element mounts against this secret and
+   * stays mounted through a failed-and-retried payment attempt, so this is
+   * also the state a payment error is shown against.
+   */
+  | { status: 'payment'; orderRef: string; clientSecret: string }
   | { status: 'done'; orderRef: string }
   | { status: 'error'; message: string }
 
@@ -48,6 +55,7 @@ export type DeliveryState = {
 export type OrderState = {
   name: string
   phone: string
+  email: string
   planId: PlanId
   printName: string
   customization: string
@@ -58,11 +66,18 @@ export type OrderState = {
   notice: string | null
   quote: QuoteState
   submit: SubmitState
+  /**
+   * Minted once per checkout attempt and reused across retries, so a flaky
+   * network resubmitting /api/order lands on the same order row and the same
+   * Stripe PaymentIntent instead of creating duplicates.
+   */
+  attemptId: string
 }
 
 export type TextField =
   | 'name'
   | 'phone'
+  | 'email'
   | 'printName'
   | 'customization'
   | 'message'
@@ -96,8 +111,9 @@ export type Action =
     }
   | { type: 'quoteError'; message: string }
   | { type: 'submitStart' }
-  | { type: 'submitOk'; orderRef: string }
+  | { type: 'submitOk'; orderRef: string; clientSecret: string }
   | { type: 'submitError'; message: string }
+  | { type: 'paymentOk'; orderRef: string }
 
 const IDLE_QUOTE: QuoteState = { status: 'idle' }
 
@@ -105,6 +121,7 @@ export function initialOrderState(planId: PlanId): OrderState {
   return {
     name: '',
     phone: '',
+    email: '',
     planId,
     printName: '',
     customization: '',
@@ -126,6 +143,7 @@ export function initialOrderState(planId: PlanId): OrderState {
     notice: null,
     quote: IDLE_QUOTE,
     submit: { status: 'idle' },
+    attemptId: crypto.randomUUID(),
   }
 }
 
@@ -292,10 +310,20 @@ export function orderReducer(state: OrderState, action: Action): OrderState {
       return { ...state, submit: { status: 'submitting' } }
 
     case 'submitOk':
-      return { ...state, submit: { status: 'done', orderRef: action.orderRef } }
+      return {
+        ...state,
+        submit: {
+          status: 'payment',
+          orderRef: action.orderRef,
+          clientSecret: action.clientSecret,
+        },
+      }
 
     case 'submitError':
       return { ...state, submit: { status: 'error', message: action.message } }
+
+    case 'paymentOk':
+      return { ...state, submit: { status: 'done', orderRef: action.orderRef } }
   }
 }
 
@@ -305,6 +333,8 @@ export function toOrderDraft(state: OrderState): OrderDraft {
   return {
     name: state.name,
     phone: state.phone,
+    email: state.email,
+    attemptId: state.attemptId,
     planId: state.planId,
     printName: state.planId === 'custom' ? state.printName : undefined,
     customization: state.planId === 'custom' ? state.customization : undefined,
