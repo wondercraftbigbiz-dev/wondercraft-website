@@ -23,7 +23,7 @@ const playfair = Playfair_Display({
 })
 
 export const metadata: Metadata = {
-  title: 'Wondercraft — Картонена къщичка за игра | 30 €',
+  title: 'Wondercraft Toy Factory',
   description:
     'Къщичка за игра от 100% рециклиран картон. Сглобява се за 15 минути без инструменти и се прибира плоско. От 30 € (58,67 лв.).',
   generator: 'v0.app',
@@ -31,8 +31,11 @@ export const metadata: Metadata = {
   alternates: {
     canonical: '/',
   },
+  icons: {
+    icon: '/images/logo vertical with background - only icons.jpeg',
+  },
   openGraph: {
-    title: 'Wondercraft — Картонена къщичка за игра | 30 €',
+    title: 'Wondercraft Toy Factory',
     description:
       'Къщичка за игра от 100% рециклиран картон. Сглобява се за 15 минути без инструменти и се прибира плоско. От 30 € (58,67 лв.).',
     type: 'website',
