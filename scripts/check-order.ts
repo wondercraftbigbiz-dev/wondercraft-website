@@ -44,7 +44,13 @@ for (const raw of [
 }
 
 // --- Contact ----------------------------------------------------------------
-const goodContact = { name: 'Иван Петров', phone: '0881234567', planId: 'standard' }
+const goodContact = {
+  name: 'Иван Петров',
+  phone: '0881234567',
+  email: 'ivan@example.com',
+  attemptId: 'attempt-1',
+  planId: 'standard',
+}
 assert.equal(hasErrors(validateContact(goodContact)), false)
 
 assert.match(validateContact({ ...goodContact, name: '' }).name!, /въведете име/)
@@ -57,6 +63,8 @@ assert.match(
 )
 assert.match(validateContact({ ...goodContact, phone: '' }).phone!, /въведете телефон/)
 assert.match(validateContact({ ...goodContact, phone: '029876543' }).phone!, /мобилен/)
+assert.match(validateContact({ ...goodContact, email: '' }).email!, /въведете имейл/)
+assert.match(validateContact({ ...goodContact, email: 'not-an-email' }).email!, /валиден имейл/)
 assert.match(validateContact({ ...goodContact, planId: 'nope' }).model!, /изберете модел/)
 
 assert.match(
@@ -113,6 +121,7 @@ assert.equal(hasErrors(ok.errors), false)
 assert.ok(ok.value)
 assert.equal(ok.value.phone, '+359881234567', 'phone must come back normalized')
 assert.equal(ok.value.name, 'Иван Петров')
+assert.equal(ok.value.email, 'ivan@example.com')
 assert.equal(ok.value.planId, 'standard')
 assert.equal(ok.value.printName, null, 'blank optional fields normalize to null')
 assert.equal(ok.value.delivery.cityId, 41)

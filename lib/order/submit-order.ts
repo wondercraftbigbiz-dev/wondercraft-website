@@ -1,10 +1,12 @@
 import 'server-only'
 
 import { findPlan, type Plan } from '@/lib/data/pricing'
-import { addMoney, eur, toEur, type Money } from '@/lib/money'
+import { addMoney, eur, toBgn, toEur, type Money } from '@/lib/money'
 import type { CityDto, DeliveryDto, OfficeDto } from '@/lib/econt/dto'
 import { logFailure } from '@/lib/econt/route-helpers'
 import { calculateShipping } from '@/lib/econt/shipping'
+import { getSupabaseAdmin } from '@/lib/supabase/admin'
+import { getStripe } from '@/lib/stripe/server'
 import type { OrderInput } from './schema'
 
 /**
@@ -29,20 +31,22 @@ export type AcceptedOrder = {
   shipping: Money | null
   total: Money
   quoteId: string | null
+  /** Mount a Stripe Payment Element against this to collect payment. */
+  clientSecret: string
 }
 
 /**
- * Accept an order.
+ * Accept an order and open a Stripe PaymentIntent for it.
  *
- * The single place an order becomes real, and the seam the next phases plug
- * into: persistOrder() becomes a database write, and a Stripe PaymentIntent
- * slots in between pricing and persistence. Everything before that point —
- * validation, authoritative pricing — already happens here, so those changes are
- * additive rather than a rewrite.
+ * Order of operations matters: the PaymentIntent is created first (idempotent
+ * on `input.attemptId`, so a retried submit reuses the same one instead of
+ * charging twice), then `place_order` stores its id as `provider_order_id` —
+ * the column `mark_order_paid` later locks the row by, from the webhook.
  */
 export async function submitOrder(
   input: OrderInput,
   context: OrderContext,
+  userAgent: string | null,
 ): Promise<AcceptedOrder> {
   const plan = findPlan(input.planId)
   if (!plan) throw new Error(`Unknown plan ${input.planId}`)
@@ -84,111 +88,130 @@ export async function submitOrder(
   }
 
   const total = shipping ? addMoney(product, shipping) : product
-  const orderRef = makeOrderRef()
 
-  await persistOrder({ orderRef, input, context, product, shipping, total, quoteId })
-  await notifyOrder({ orderRef, input, total })
+  const stripe = getStripe()
+  // total.cents is already eurocents — Stripe's minor unit for EUR — so no
+  // conversion. idempotencyKey ties this to the attempt: a retried submit
+  // with the same attemptId gets back the same PaymentIntent instead of a
+  // second charge.
+  const paymentIntent = await stripe.paymentIntents.create(
+    {
+      amount: total.cents,
+      currency: 'eur',
+      automatic_payment_methods: { enabled: true },
+      description: `WonderCraft — ${plan.name}`,
+      receipt_email: input.email,
+    },
+    { idempotencyKey: input.attemptId },
+  )
 
-  return { orderRef, plan, product, shipping, total, quoteId }
+  const { orderNumber } = await placeOrder({
+    input,
+    context,
+    product,
+    shipping,
+    paymentIntentId: paymentIntent.id,
+    userAgent,
+  })
+
+  const orderRef = `WC-${orderNumber}`
+
+  // Best-effort: lets the Stripe Dashboard show which order a payment belongs
+  // to. Never block the checkout on this succeeding.
+  stripe.paymentIntents
+    .update(paymentIntent.id, { metadata: { orderRef, orderNumber: String(orderNumber) } })
+    .catch(logFailure)
+
+  if (!paymentIntent.client_secret) {
+    throw new Error('Stripe did not return a client secret for the PaymentIntent')
+  }
+
+  return {
+    orderRef,
+    plan,
+    product,
+    shipping,
+    total,
+    quoteId,
+    clientSecret: paymentIntent.client_secret,
+  }
 }
 
 /**
- * TODO(next phase): write to the database.
+ * Insert the order row via the `place_order` RPC, keyed on `attemptId`.
  *
- * Until then the order lives only in the logs, which is why the reference is
- * printed and shown to the customer — it is the one handle a phone call can use.
+ * A retried submit (same attemptId, e.g. after a dropped response) hits the
+ * unique index on `orders.attempt_id` — that is not an error, it means the
+ * first attempt already landed, so look the row up and reuse it instead of
+ * failing the retry.
  */
-async function persistOrder(record: {
-  orderRef: string
+async function placeOrder(args: {
   input: OrderInput
   context: OrderContext
   product: Money
   shipping: Money | null
-  total: Money
-  quoteId: string | null
-}): Promise<void> {
-  const { orderRef, input, context } = record
+  paymentIntentId: string
+  userAgent: string | null
+}): Promise<{ orderNumber: number }> {
+  const { input, context, product, shipping, paymentIntentId, userAgent } = args
+  const plan = findPlan(input.planId)
+  if (!plan) throw new Error(`Unknown plan ${input.planId}`)
 
-  // Order shape and money: safe to keep, useful for debugging pricing.
-  console.log(
-    JSON.stringify({
-      evt: 'order.received',
-      orderRef,
-      planId: input.planId,
-      sku: findPlan(input.planId)?.sku,
-      delivery: {
-        type: input.delivery.type,
-        cityId: context.city?.id ?? context.rawCityId,
-        cityName: context.city?.name ?? null,
-        postCode: context.city?.postCode ?? null,
-        officeCode: context.office?.code ?? context.rawOfficeCode ?? null,
-        street: blank(input.delivery.street),
-        streetNum: blank(input.delivery.streetNum),
-        quarter: blank(input.delivery.quarter),
-        // True when Econt was unreachable, so the destination is unverified and
-        // the names above are missing. Flags the orders that need a careful
-        // phone call.
-        unverified: context.city === null,
-      },
-      money: {
-        productEurCents: record.product.cents,
-        shippingEurCents: record.shipping?.cents ?? null,
-        totalEurCents: record.total.cents,
-        quoteId: record.quoteId,
-      },
-      at: new Date().toISOString(),
-    }),
-  )
+  const supabase = getSupabaseAdmin()
+  const rpcArgs = {
+    p_email: input.email,
+    p_full_name: input.name,
+    p_phone: input.phone,
+    p_city: context.city?.name ?? null,
+    p_product_id: plan.sku,
+    p_product_name: plan.name,
+    p_unit_price_eur: product.cents / 100,
+    p_unit_price_bgn: toBgn(product).cents / 100,
+    p_shipping_eur: shipping ? shipping.cents / 100 : 0,
+    p_quantity: 1,
+    p_print_name: input.printName,
+    p_customization: input.customization,
+    p_message: input.message,
+    p_marketing_consent: false,
+    p_source: 'website',
+    p_utm: null,
+    p_user_agent: userAgent,
+    p_payment_provider: 'stripe',
+    p_provider_order_id: paymentIntentId,
+    p_attempt_id: input.attemptId,
+    p_payment_status: 'pending',
+    p_delivery_type: input.delivery.type,
+    p_econt_city_id: context.city?.id ?? context.rawCityId,
+    p_econt_city_name: context.city?.name ?? null,
+    p_econt_post_code: context.city?.postCode ?? null,
+    p_econt_office_code: context.office?.code ?? context.rawOfficeCode ?? null,
+    p_econt_office_name: context.office?.name ?? null,
+    p_street: input.delivery.street ?? null,
+    p_street_num: input.delivery.streetNum ?? null,
+    p_quarter: input.delivery.quarter ?? null,
+    p_floor: input.delivery.floor ?? null,
+    p_apt: input.delivery.apt ?? null,
+    p_delivery_note: input.delivery.note ?? null,
+    p_econt_unverified: context.city === null,
+  }
 
-  // Personal data on a separate line, deliberately.
-  //
-  // TODO(privacy): this is a stopgap until the database exists. Names, phone
-  // numbers and addresses in application logs have a retention life of their own
-  // that nobody manages — splitting the lines means this one can be dropped or
-  // routed differently without losing the order record above. Remove it the
-  // moment persistOrder actually persists.
-  console.log(
-    JSON.stringify({
-      evt: 'order.contact',
-      orderRef,
-      name: input.name,
-      phone: input.phone,
-      printName: input.printName,
-      customization: input.customization,
-      message: input.message,
-      floor: blank(input.delivery.floor),
-      apt: blank(input.delivery.apt),
-      note: blank(input.delivery.note),
-    }),
-  )
-}
+  const { data, error } = await supabase.rpc('place_order', rpcArgs)
 
-/** TODO(next phase): email the shop, and confirm to the customer. */
-async function notifyOrder(_record: {
-  orderRef: string
-  input: OrderInput
-  total: Money
-}): Promise<void> {
-  // Intentionally empty. The phone call is the current notification channel.
-}
+  if (error) {
+    // 23505 = unique_violation. Only attempt_id is expected to collide on a
+    // legitimate retry — provider_order_id colliding here would mean Stripe
+    // handed back someone else's PaymentIntent id, which should fail loudly.
+    if (error.code === '23505' && error.message.includes('attempt_id')) {
+      const existing = await supabase
+        .from('orders')
+        .select('order_number')
+        .eq('attempt_id', input.attemptId)
+        .single()
+      if (existing.data) return { orderNumber: existing.data.order_number }
+    }
+    throw new Error(`place_order failed: ${error.message}`)
+  }
 
-/**
- * A short, human-quotable reference: WC-<base36 time><random>.
- *
- * Time-prefixed so references sort chronologically, and short enough to read
- * back over the phone without asking anyone to spell a UUID.
- */
-/** Empty strings are noise in a log; null says "not provided". */
-function blank(v: string | undefined): string | null {
-  const t = (v ?? '').trim()
-  return t.length > 0 ? t : null
-}
-
-function makeOrderRef(): string {
-  const time = Date.now().toString(36).toUpperCase()
-  const rand = Math.floor(Math.random() * 36 ** 3)
-    .toString(36)
-    .toUpperCase()
-    .padStart(3, '0')
-  return `WC-${time}${rand}`
+  const row = Array.isArray(data) ? data[0] : data
+  return { orderNumber: row.order_number }
 }

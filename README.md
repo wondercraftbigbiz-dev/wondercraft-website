@@ -108,22 +108,57 @@ API on a preview deploy before launch.
 | `lib/econt/dto.ts` | the only Econt types the browser sees |
 | `lib/econt/fixtures/` | offline data, including the awkward cases |
 | `lib/order/schema.ts` | validation both the browser and the API run |
-| `lib/order/submit-order.ts` | where an order becomes real — the DB/Stripe seam |
+| `lib/order/submit-order.ts` | where an order becomes real: places the order and opens the Stripe PaymentIntent |
 | `app/api/econt/*`, `app/api/order` | the routes |
+| `app/api/webhooks/stripe` | settles orders on Stripe's word — see Payments below |
 | `components/site/checkout/` | the form UI, driven by `order-reducer.ts` |
 
 Two boundaries worth not eroding:
 
 - **Quote requests carry a plan id, never a weight or a price.** The server reads
   those from `lib/data/pricing.ts`. A client that could send them could quote
-  itself free shipping, and once Stripe is wired up, underpay.
+  itself free shipping, or underpay through Stripe.
 - **Nothing under `lib/econt/` except `dto.ts` may be imported by a client
   component.** The rest starts with `import 'server-only'`, so a mistake is a
   build error rather than a leaked password.
 
-Orders are currently written to the logs only — `order.received` for the shape
-and money, `order.contact` for personal data, split so the second can be dropped
-or routed separately. Both are replaced by the database write in the next phase.
+### Payments (Stripe)
+
+Orders are stored in Supabase (`place_order`) and paid for with a Stripe
+PaymentIntent, collected in-page with a Stripe Elements Payment Element — no
+redirect to a Stripe-hosted page for a normal card payment.
+
+- `lib/stripe/server.ts` / `lib/stripe/client.ts` — server and browser Stripe
+  clients. The server one reads `STRIPE_SECRET_KEY`; never the reverse.
+- `lib/supabase/admin.ts` — the service-role client. `place_order` and
+  `mark_order_paid` are callable only by `service_role` (see migration
+  `014_restrict_payment_rpc_grants`), so this is the only thing that may call
+  them — never expose the service role key to the browser.
+- `lib/order/submit-order.ts` — creates the PaymentIntent (idempotent on the
+  client-minted `attemptId`, so a retried submit cannot double-charge), then
+  calls `place_order` with the PaymentIntent id as `provider_order_id`.
+- `app/api/webhooks/stripe/route.ts` — the only place an order actually
+  becomes `paid`. Verifies the Stripe signature, calls `mark_order_paid`
+  (which re-checks the amount against `total_eur` server-side), and sends the
+  shop + customer emails via Resend on success. The client-side payment step
+  only drives the UI; it is never the source of truth for whether money moved.
+
+Test locally with Stripe test keys and the Stripe CLI:
+
+```bash
+stripe listen --forward-to localhost:3000/api/webhooks/stripe
+```
+
+#### Before this can go live (Stripe)
+
+- Activate the Stripe account for live payments in the Stripe Dashboard
+  (business details, bank account) — not a code change.
+- Create a **live**-mode webhook endpoint once the production domain is known,
+  subscribed at least to `payment_intent.succeeded` and
+  `payment_intent.payment_failed`, and put its signing secret in
+  `STRIPE_WEBHOOK_SECRET` (Production scope in Vercel).
+- `PACKED_PARCEL` above is still zeroed — until it is measured, Stripe only
+  ever charges the product price, never shipping.
 
 ### Checks
 

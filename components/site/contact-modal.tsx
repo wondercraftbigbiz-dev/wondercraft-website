@@ -12,6 +12,7 @@ import type { OrderResponse } from '@/lib/econt/dto'
 import { findPlan } from '@/lib/data/pricing'
 import { DeliverySection } from './checkout/delivery-section'
 import { OrderSummary } from './checkout/order-summary'
+import { PaymentStep } from './checkout/payment-step'
 import { useShippingQuote } from './checkout/use-shipping-quote'
 import {
   initialOrderState,
@@ -35,6 +36,7 @@ export function ContactModal({
   const { errors, planId } = state
   const isCustom = planId === 'custom'
   const submitted = state.submit.status === 'done'
+  const awaitingPayment = state.submit.status === 'payment'
   const submitting = state.submit.status === 'submitting'
   const plan = findPlan(planId)
 
@@ -64,7 +66,11 @@ export function ContactModal({
       const body = (await res.json()) as OrderResponse
 
       if (body.ok) {
-        dispatch({ type: 'submitOk', orderRef: body.orderRef })
+        dispatch({
+          type: 'submitOk',
+          orderRef: body.orderRef,
+          clientSecret: body.clientSecret,
+        })
         return
       }
 
@@ -86,7 +92,9 @@ export function ContactModal({
 
   return (
     <ModalShell
-      title={submitted ? 'Благодарим ви!' : 'Поръчай сега'}
+      title={
+        submitted ? 'Благодарим ви!' : awaitingPayment ? 'Плащане' : 'Поръчай сега'
+      }
       onClose={onClose}
       aside={
         submitted ? undefined : (
@@ -106,20 +114,29 @@ export function ContactModal({
                 {state.submit.message}
               </p>
             )}
-            <button
-              type="submit"
-              form="order-form"
-              disabled={submitting}
-              className="mt-4 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-md border border-border-soft bg-salmon px-6 py-3 font-sans text-base font-semibold text-charcoal shadow-soft transition-all duration-200 ease-[cubic-bezier(0.34,1.56,0.64,1)] hover:-translate-y-0.5 hover:scale-[1.02] hover:bg-salmon-hover hover:shadow-soft-lg active:scale-[0.96] active:duration-100 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0 disabled:hover:scale-100"
-            >
-              {submitting && (
-                <SpinnerIcon className="h-4 w-4 animate-spin" aria-hidden="true" />
-              )}
-              {submitting ? 'Изпращаме…' : 'Поръчай сега'}
-            </button>
-            <p className="mt-3 text-center text-sm text-charcoal-soft">
-              Ще се свържем с вас, за да потвърдим детайлите.
-            </p>
+            {awaitingPayment ? (
+              <p className="mt-4 text-center text-sm text-charcoal-soft">
+                Довършете плащането вляво, за да потвърдим поръчката.
+              </p>
+            ) : (
+              <>
+                <button
+                  type="submit"
+                  form="order-form"
+                  disabled={submitting}
+                  className="mt-4 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-md border border-border-soft bg-salmon px-6 py-3 font-sans text-base font-semibold text-charcoal shadow-soft transition-all duration-200 ease-[cubic-bezier(0.34,1.56,0.64,1)] hover:-translate-y-0.5 hover:scale-[1.02] hover:bg-salmon-hover hover:shadow-soft-lg active:scale-[0.96] active:duration-100 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0 disabled:hover:scale-100"
+                >
+                  {submitting && (
+                    <SpinnerIcon className="h-4 w-4 animate-spin" aria-hidden="true" />
+                  )}
+                  {submitting ? 'Изпращаме…' : 'Продължи към плащане'}
+                </button>
+                <p className="mt-3 text-center text-sm text-charcoal-soft">
+                  Плащането е следващата стъпка. Ще се свържем с вас и за
+                  доставката.
+                </p>
+              </>
+            )}
           </div>
         )
       }
@@ -130,6 +147,21 @@ export function ContactModal({
             state.submit.status === 'done' ? state.submit.orderRef : ''
           }
         />
+      ) : awaitingPayment ? (
+        <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5 lg:col-start-1 lg:row-start-2">
+          <PaymentStep
+            clientSecret={
+              state.submit.status === 'payment' ? state.submit.clientSecret : ''
+            }
+            onSuccess={() =>
+              dispatch({
+                type: 'paymentOk',
+                orderRef:
+                  state.submit.status === 'payment' ? state.submit.orderRef : '',
+              })
+            }
+          />
+        </div>
       ) : (
         <form
           id="order-form"
@@ -172,6 +204,25 @@ export function ContactModal({
                   aria-describedby={describedBy}
                   onChange={(e) =>
                     dispatch({ type: 'setText', field: 'phone', value: e.target.value })
+                  }
+                />
+              )}
+            </Field>
+
+            <Field label="Имейл" error={errors.email}>
+              {({ describedBy, hasError }) => (
+                <input
+                  name="email"
+                  type="email"
+                  inputMode="email"
+                  autoComplete="email"
+                  maxLength={LIMITS.email}
+                  className="modal-input"
+                  value={state.email}
+                  aria-invalid={hasError || undefined}
+                  aria-describedby={describedBy}
+                  onChange={(e) =>
+                    dispatch({ type: 'setText', field: 'email', value: e.target.value })
                   }
                 />
               )}

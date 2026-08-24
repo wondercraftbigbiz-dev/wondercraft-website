@@ -106,6 +106,8 @@ export type OrderOk = {
   orderRef: string
   total: MoneyDto
   shipping: MoneyDto | null
+  /** Mount a Stripe Payment Element against this to collect payment. */
+  clientSecret: string
 }
 
 export type OrderFailed = {

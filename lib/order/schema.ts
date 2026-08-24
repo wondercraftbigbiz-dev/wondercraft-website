@@ -15,6 +15,7 @@ import { isDeliveryType, type DeliveryType } from '@/lib/econt/dto'
 export type OrderErrorField =
   | 'name'
   | 'phone'
+  | 'email'
   | 'model'
   | 'deliveryType'
   | 'city'
@@ -31,6 +32,7 @@ export type OrderErrors = Partial<Record<OrderErrorField, string>>
 
 export const LIMITS = {
   name: 100,
+  email: 254,
   printName: 30,
   street: 120,
   streetNum: 10,
@@ -45,6 +47,9 @@ export const LIMITS = {
 export type ContactDraft = {
   name: string
   phone: string
+  email: string
+  /** Client-minted id for this checkout attempt. See lib/order/submit-order.ts. */
+  attemptId: string
   planId: string
   printName?: string
   customization?: string
@@ -81,6 +86,13 @@ export function normalizePhone(raw: string): string | null {
   return national ? `+359${national[1]}` : null
 }
 
+/** Deliberately simple: catches typos, not RFC 5322 edge cases. */
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+export function isValidEmail(email: string): boolean {
+  return EMAIL_RE.test(email)
+}
+
 export function validateContact(draft: ContactDraft): OrderErrors {
   const errors: OrderErrors = {}
 
@@ -96,6 +108,11 @@ export function validateContact(draft: ContactDraft): OrderErrors {
   else if (!normalizePhone(phone))
     errors.phone =
       'Моля, въведете валиден български мобилен номер, напр. 0881234567.'
+
+  const email = draft.email.trim()
+  if (!email) errors.email = 'Моля, въведете имейл.'
+  else if (email.length > LIMITS.email || !isValidEmail(email))
+    errors.email = 'Моля, въведете валиден имейл адрес.'
 
   if (!isPlanId(draft.planId)) errors.model = 'Моля, изберете модел.'
 
@@ -156,6 +173,8 @@ export function validateDelivery(delivery: DeliveryDraft): OrderErrors {
 export type OrderInput = {
   name: string
   phone: string
+  email: string
+  attemptId: string
   planId: PlanId
   printName: string | null
   customization: string | null
@@ -175,9 +194,12 @@ export function validateOrder(
 
   const phone = normalizePhone(draft.phone)
   const cityId = draft.delivery.cityId
-  // validateContact/validateDelivery already guarantee both, but narrowing here
-  // keeps OrderInput honest rather than asserting non-null.
-  if (!phone || !cityId || !isPlanId(draft.planId)) {
+  const attemptId = (draft.attemptId ?? '').trim()
+  // validateContact/validateDelivery already guarantee the contact/delivery
+  // fields; attemptId is minted by our own client code, never typed by a
+  // customer, so an invalid one means a bug or a bypassed client, not
+  // something a form message can fix.
+  if (!phone || !cityId || !isPlanId(draft.planId) || !attemptId || attemptId.length > 100) {
     return { errors: { form: 'Моля, проверете данните във формата.' } }
   }
 
@@ -186,6 +208,8 @@ export function validateOrder(
     value: {
       name: draft.name.trim(),
       phone,
+      email: draft.email.trim().toLowerCase(),
+      attemptId,
       planId: draft.planId,
       printName: blankToNull(draft.printName),
       customization: blankToNull(draft.customization),
