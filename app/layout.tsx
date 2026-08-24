@@ -22,6 +22,10 @@ const playfair = Playfair_Display({
   display: 'swap',
 })
 
+// title, icons, and openGraph.title below are the site's tab title/favicon —
+// intentionally set to "Wondercraft Toy Factory" and the vertical logo jpeg.
+// Do not revert these to old copy/placeholders when regenerating this file
+// (e.g. via v0 or other AI-assisted edits) or when merging other branches.
 export const metadata: Metadata = {
   title: 'Wondercraft Toy Factory',
   description:
