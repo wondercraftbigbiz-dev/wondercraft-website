@@ -21,7 +21,7 @@ export function Guarantee() {
           <div className="flex flex-col items-start gap-6 md:flex-row md:items-center md:gap-10">
             <span className="inline-flex h-14 w-14 shrink-0 items-center justify-center rounded-lg border border-cream/15 bg-cream/5">
               <ShieldIcon
-                className="float-loop h-7 w-7 text-salmon"
+                className="float-loop h-7 w-7 text-amber"
                 aria-hidden="true"
               />
             </span>

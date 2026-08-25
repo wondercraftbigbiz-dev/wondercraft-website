@@ -52,6 +52,8 @@ export const metadata: Metadata = {
 }
 
 export const viewport: Viewport = {
+  // Manual mirror of --color-cream in app/globals.css. Metadata cannot read
+  // CSS custom properties, so this has to be updated by hand alongside it.
   themeColor: '#fdf9f4',
   colorScheme: 'light',
 }

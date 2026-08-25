@@ -38,7 +38,7 @@ export function Benefits() {
           smaller ones stacked beside it, instead of three equal boxes. */}
       <div className="mt-10 grid gap-5 lg:grid-cols-3 lg:grid-rows-2">
         <Reveal className="lg:col-span-2 lg:row-span-2">
-          <div className="card-hover-lift group flex h-full flex-col justify-center rounded-lg border border-border-soft bg-sage p-8 shadow-soft md:p-10">
+          <div className="card-hover-lift group flex h-full flex-col justify-center rounded-lg border border-border-soft bg-jade-tint-strong p-8 shadow-soft md:p-10">
             <span className="inline-flex h-14 w-14 items-center justify-center rounded-md border border-border-soft bg-cream transition-transform duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] group-hover:-translate-y-0.5 group-hover:-rotate-3">
               <lead.icon className="h-7 w-7 text-charcoal" aria-hidden="true" />
             </span>
@@ -54,7 +54,7 @@ export function Benefits() {
         {rest.map((benefit, i) => (
           <Reveal key={benefit.title} delay={(i + 1) * 80}>
             <div className="card-hover-lift group h-full rounded-lg border border-border-soft bg-cream p-6 shadow-soft">
-              <span className="inline-flex h-12 w-12 items-center justify-center rounded-md border border-border-soft bg-sage transition-transform duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] group-hover:-translate-y-0.5 group-hover:-rotate-3">
+              <span className="inline-flex h-12 w-12 items-center justify-center rounded-md border border-border-soft bg-jade-tint transition-transform duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] group-hover:-translate-y-0.5 group-hover:-rotate-3">
                 <benefit.icon
                   className="h-6 w-6 text-charcoal"
                   aria-hidden="true"

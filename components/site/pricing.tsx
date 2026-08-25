@@ -10,7 +10,7 @@ export function Pricing() {
     <section
       id="pricing"
       aria-labelledby="pricing-heading"
-      className="corrugation bg-kraft/40 px-5 py-14 md:py-24"
+      className="corrugation bg-kraft-wash px-5 py-14 md:py-24"
     >
       <div className="mx-auto w-full max-w-[1120px]">
         <Reveal>
@@ -49,7 +49,7 @@ export function Pricing() {
                         </p>
                       </div>
                       {plan.featured && (
-                        <span className="shrink-0 rounded-full border border-border-soft-strong bg-salmon px-3 py-1 font-display text-sm font-semibold text-charcoal">
+                        <span className="shrink-0 rounded-full border border-border-soft-strong bg-amber px-3 py-1 font-display text-sm font-semibold text-charcoal">
                           Любим избор
                         </span>
                       )}
@@ -78,7 +78,7 @@ export function Pricing() {
                       {plan.features.map((feature) => (
                         <li key={feature} className="flex items-start gap-3">
                           <CheckIcon
-                            className="mt-0.5 h-5 w-5 shrink-0 text-salmon-deep"
+                            className="mt-0.5 h-5 w-5 shrink-0 text-jade-ink"
                             aria-hidden="true"
                           />
                           <span className="text-base leading-relaxed text-charcoal">
