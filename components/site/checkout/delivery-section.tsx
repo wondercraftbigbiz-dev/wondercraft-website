@@ -65,7 +65,7 @@ export function DeliverySection({
       />
 
       {state.notice && (
-        <p className="rounded-md border border-border-soft bg-jade-tint px-4 py-3 text-sm leading-relaxed text-charcoal">
+        <p className="rounded-md border border-border-soft bg-kraft-soft px-4 py-3 text-sm leading-relaxed text-charcoal">
           {state.notice}
         </p>
       )}

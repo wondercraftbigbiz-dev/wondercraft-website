@@ -40,7 +40,7 @@ export function Hero() {
               className="mt-6 text-balance font-display text-[38px] font-bold leading-[1.02] tracking-[-0.02em] text-charcoal sm:text-[46px] md:text-[54px] lg:text-[52px] xl:text-[64px]"
             >
               Къщичка за игра, която{' '}
-              <em className="italic text-jade-ink">расте</em> с
+              <em className="italic text-salmon-ink">расте</em> с
               въображението
             </h1>
           </Reveal>
