@@ -20,9 +20,11 @@ const MAX_BODY_BYTES = 8 * 1024
  * is trusted, and the total shown to them was computed from a quote that may
  * have expired.
  *
- * This phase has no database and no payment — submitOrder logs the order and
- * returns a reference. The customer still gets the "we'll call you" flow the
- * shop already runs on.
+ * On success the order is written to the database and, when Econt priced the
+ * delivery, a Stripe Checkout Session is created and its URL returned for the
+ * browser to redirect to. If the delivery could not be priced there is no total
+ * worth charging, so the order is saved unpaid and the shop's existing
+ * "we'll call you" flow takes over — see submitOrder.
  */
 export async function POST(request: Request) {
   const limited = rateLimitGuard(request, 'order')
@@ -57,6 +59,11 @@ export async function POST(request: Request) {
     printName: draft.printName,
     customization: draft.customization,
     message: draft.message,
+    // Not validated as a form field — a missing or malformed one is not the
+    // customer's mistake to fix. validateOrder drops it to null, and submitOrder
+    // then routes the order down the phone path rather than taking a payment it
+    // could not make idempotent.
+    attemptId: draft.attemptId,
     delivery: {
       type: draft.delivery.type,
       cityId: Number(draft.delivery.cityId) || null,
@@ -128,6 +135,7 @@ export async function POST(request: Request) {
       office,
       rawCityId: value.delivery.cityId,
       rawOfficeCode: value.delivery.officeCode ?? null,
+      userAgent: request.headers.get('user-agent'),
     }
 
     const accepted = await submitOrder(value, context)
@@ -137,6 +145,7 @@ export async function POST(request: Request) {
       orderRef: accepted.orderRef,
       total: toDto(accepted.total),
       shipping: accepted.shipping ? toDto(accepted.shipping) : null,
+      redirectUrl: accepted.redirectUrl,
     })
   } catch (error) {
     logFailure(error)

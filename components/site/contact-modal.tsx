@@ -38,7 +38,10 @@ export function ContactModal({
   const { errors, planId } = state
   const isCustom = planId === 'custom'
   const submitted = state.submit.status === 'done'
-  const submitting = state.submit.status === 'submitting'
+  // Both keep the button disabled and the spinner up: the second is the window
+  // between accepting the order and the browser actually leaving for Stripe.
+  const redirecting = state.submit.status === 'redirecting'
+  const submitting = state.submit.status === 'submitting' || redirecting
   const plan = findPlan(planId)
 
   useShippingQuote(state, dispatch)
@@ -76,6 +79,16 @@ export function ContactModal({
       const body = (await res.json()) as OrderResponse
 
       if (body.ok) {
+        // Delivery was priced and a Checkout Session is waiting: hand the
+        // customer to Stripe, where the card details are entered on a page we
+        // never see. Keep the button disabled through the navigation.
+        if (body.redirectUrl) {
+          dispatch({ type: 'submitRedirect' })
+          window.location.assign(body.redirectUrl)
+          return
+        }
+        // No delivery price, so nothing to charge — the order is saved unpaid
+        // and the shop confirms it by phone.
         dispatch({ type: 'submitOk', orderRef: body.orderRef })
         return
       }
@@ -127,10 +140,14 @@ export function ContactModal({
               {submitting && (
                 <SpinnerIcon className="h-4 w-4 animate-spin" aria-hidden="true" />
               )}
-              {submitting ? 'Изпращаме…' : 'Поръчай сега'}
+              {redirecting
+                ? 'Пренасочваме към плащане…'
+                : submitting
+                  ? 'Изпращаме…'
+                  : 'Поръчай и плати'}
             </button>
             <p className="mt-3 text-center text-sm text-charcoal-soft">
-              Ще се свържем с вас, за да потвърдим детайлите.
+              Плащането е с карта, на защитена страница на Stripe.
             </p>
           </div>
         )

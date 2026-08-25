@@ -12,6 +12,7 @@ import {
   validateContact,
   validateDelivery,
   validateOrder,
+  isAttemptId,
   type DeliveryDraft,
 } from '../lib/order/schema.ts'
 
@@ -194,6 +195,30 @@ const both = validateOrder({
 })
 assert.ok(both.errors.lastName && both.errors.officeCode)
 assert.equal(both.value, undefined, 'no value when invalid')
+
+// --- Payment attempt id -----------------------------------------------------
+// The idempotency key for the whole payment path: it is the Stripe idempotency
+// key AND orders.attempt_id, which is uniquely indexed. A malformed one must not
+// reach either, so it is dropped to null rather than passed through.
+assert.ok(isAttemptId('3f2504e0-4f89-41d3-9a0c-0305e82c3301'))
+assert.ok(isAttemptId('3F2504E0-4F89-41D3-9A0C-0305E82C3301'), 'case-insensitive')
+for (const bad of ['', 'nope', '3f2504e04f8941d39a0c0305e82c3301', 42, null, undefined]) {
+  assert.equal(isAttemptId(bad), false, `should have rejected ${String(bad)}`)
+}
+
+const withAttempt = validateOrder({
+  ...goodContact,
+  attemptId: '3f2504e0-4f89-41d3-9a0c-0305e82c3301',
+  delivery: office,
+})
+assert.equal(withAttempt.value?.attemptId, '3f2504e0-4f89-41d3-9a0c-0305e82c3301')
+
+// Missing or malformed: not a validation error the customer could fix, so the
+// order still stands — it just takes the phone path instead of a payment.
+assert.equal(validateOrder({ ...goodContact, delivery: office }).value?.attemptId, null)
+const junkAttempt = validateOrder({ ...goodContact, attemptId: 'junk', delivery: office })
+assert.equal(junkAttempt.value?.attemptId, null)
+assert.equal(hasErrors(junkAttempt.errors), false)
 
 // --- Bulgarian preposition agreement ---------------------------------------
 // "в Варна" is unpronounceable; the preposition becomes "във" before в and ф.

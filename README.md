@@ -85,18 +85,78 @@ credentials in the Preview environment scope. Never point production at demo.
 
 #### Before this can go live
 
-`PACKED_PARCEL` in `lib/data/pricing.ts` is still zeroed, with a TODO. Econt
-prices on weight **and** volumetric weight, so until a real packed box is
-measured the delivery quote fails closed on purpose: the checkout shows
-"по договаряне" and the total is the product price alone. It never invents a
-number, because a number that is too low is absorbed by the shop on every
-order. Filling in that one block turns the live price on.
+`PACKED_PARCEL` in `lib/data/pricing.ts` now carries the real packed box —
+5 kg, 90 × 60 × 20 cm — so the delivery quote is live and the checkout prices
+shipping instead of showing "по договаряне". Re-measure and correct it if the
+packing changes: Econt prices on weight **and** volumetric weight, and a number
+that is too low is absorbed by the shop on every order.
 
-Also unconfirmed: which field of Econt's `createLabel` response is the amount to
+One consequence is deliberate. That box does not fit an Econt automat (the
+locker limit is 60 × 40 × 40, `lib/econt/constraints.ts`), so `canFitInAps()` is
+false and the checkout greys the "Автомат" option out on its own. Nothing to
+configure — but if the box ever shrinks, the option comes back by itself.
+
+Still unconfirmed: which field of Econt's `createLabel` response is the amount to
 charge. `resolvePrice()` in `lib/econt/shipping.ts` prefers
 `courierServicePrice`, then `totalPrice`, and deliberately never
 `receiverDueAmount` (which folds in cash-on-delivery). Confirm against the real
-API on a preview deploy before launch.
+API on a preview deploy before launch — this is now the amount a customer's card
+is charged, not a number on a screen.
+
+### Payments (Stripe)
+
+Card payment via **hosted Stripe Checkout**: the browser posts the order to
+`/api/order`, the server re-prices it, creates a Checkout Session and returns its
+URL, and the customer is redirected to a page Stripe owns. No card data ever
+touches this site, so there is no publishable key and no browser Stripe SDK
+anywhere in the bundle.
+
+The order round trip, and why it is in this order:
+
+1. `submitOrder()` prices the plan from `lib/data/pricing.ts` and the delivery
+   from a fresh Econt quote. **The browser never sends an amount.**
+2. **No delivery price, no payment.** If Econt cannot quote, there is no total
+   worth charging: the order is saved `unpaid` and the shop's existing phone
+   flow takes over. It is never sent to Stripe short of the shipping cost.
+3. Otherwise the Checkout Session is created **first**, because its id is what
+   the order row is keyed on — `mark_order_paid()` finds the order by
+   `provider_order_id`, so a row without one could never settle.
+4. `place_order()` writes the order as `pending` with that session id.
+5. The customer pays, and Stripe posts to `/api/stripe/webhook`. The signature
+   is verified against the raw body, then `mark_order_paid()` settles the row —
+   after re-checking the notified amount against the `total_eur` the server
+   computed. A disagreement sets `payment_mismatch` instead of marking it paid.
+6. `/order/success` reports what the webhook recorded. It never marks anything
+   paid itself: it is a redirect URL anyone could type.
+
+**A double submit cannot produce two orders.** The browser mints one `attemptId`
+(a v4 UUID) per checkout; it is the Stripe idempotency key *and*
+`orders.attempt_id`, which is uniquely indexed, so a retry re-finds the first
+order rather than creating a second.
+
+The database was built for this and needs no migration: `place_order()` and
+`mark_order_paid()` are `security definer`, granted to `service_role` alone, and
+are the only writes this app makes. `lib/db/client.ts` is the whole data layer.
+
+Setup outside the code:
+
+- Stripe → Developers → Webhooks → add `https://<domain>/api/stripe/webhook`
+  for `checkout.session.completed` and `checkout.session.async_payment_succeeded`.
+  **Do this in test mode and live mode separately** — the signing secrets differ,
+  and the wrong one rejects every notification, stranding paid orders as `pending`.
+- Set `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `SUPABASE_URL`,
+  `SUPABASE_SERVICE_ROLE_KEY` and `NEXT_PUBLIC_SITE_URL` in Vercel, with test
+  keys scoped to Preview and live keys to Production.
+- Confirm payouts are enabled on the Stripe account, or money is captured and
+  never paid out.
+
+`STRIPE_SECRET_KEY` and `SUPABASE_SERVICE_ROLE_KEY` follow the same rule as the
+Econt credentials: **never `NEXT_PUBLIC_`**, and every module that reads them
+starts with `import 'server-only'`. The bundle check extends accordingly:
+
+```bash
+pnpm build && grep -r "sk_live\|sk_test\|whsec_\|SERVICE_ROLE" .next/static ; echo "exit=$? (1 = clean)"
+```
 
 #### Layout
 
@@ -108,7 +168,11 @@ API on a preview deploy before launch.
 | `lib/econt/dto.ts` | the only Econt types the browser sees |
 | `lib/econt/fixtures/` | offline data, including the awkward cases |
 | `lib/order/schema.ts` | validation both the browser and the API run |
-| `lib/order/submit-order.ts` | where an order becomes real — the DB/Stripe seam |
+| `lib/order/submit-order.ts` | where an order becomes real — pricing, the DB write, the Stripe session |
+| `lib/order/create-checkout.ts` | the hosted Checkout Session |
+| `lib/db/client.ts` | the only database access: two RPCs and two narrow reads |
+| `lib/stripe/client.ts` | the Stripe SDK, the pinned API version, the site origin |
+| `app/api/stripe/webhook` | the one place an order is marked paid |
 | `app/api/econt/*`, `app/api/order` | the routes |
 | `components/site/checkout/` | the form UI, driven by `order-reducer.ts` |
 
@@ -121,9 +185,10 @@ Two boundaries worth not eroding:
   component.** The rest starts with `import 'server-only'`, so a mistake is a
   build error rather than a leaked password.
 
-Orders are currently written to the logs only — `order.received` for the shape
-and money, `order.contact` for personal data, split so the second can be dropped
-or routed separately. Both are replaced by the database write in the next phase.
+Orders are written to Supabase. The logs carry one `order.placed` line with the
+shape and the money and **no personal data** — names, phones and addresses live
+in the database, where they have a retention policy, rather than in application
+logs, where they would not.
 
 ### Checks
 
