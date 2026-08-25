@@ -33,7 +33,7 @@ export function CtaButton({
         variant === 'solid' &&
           'border border-border-soft bg-salmon text-charcoal shadow-soft hover:bg-salmon-hover hover:shadow-soft-lg',
         variant === 'outline' &&
-          'border border-border-soft bg-transparent text-charcoal hover:bg-charcoal/5',
+          'border border-charcoal bg-transparent text-charcoal hover:bg-charcoal/5',
         className,
       )}
       {...rest}

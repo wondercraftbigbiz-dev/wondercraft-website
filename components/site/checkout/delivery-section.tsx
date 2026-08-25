@@ -65,7 +65,7 @@ export function DeliverySection({
       />
 
       {state.notice && (
-        <p className="rounded-md border border-border-soft bg-sage/60 px-4 py-3 text-sm leading-relaxed text-charcoal">
+        <p className="rounded-md border border-border-soft bg-jade-tint px-4 py-3 text-sm leading-relaxed text-charcoal">
           {state.notice}
         </p>
       )}
@@ -127,7 +127,7 @@ export function DeliverySection({
       {errors.form && (
         <p
           role="alert"
-          className="flex items-start gap-2 rounded-md border border-salmon-deep bg-salmon/25 px-4 py-3 text-sm leading-relaxed text-charcoal"
+          className="flex items-start gap-2 rounded-md border border-error bg-salmon-soft px-4 py-3 text-sm leading-relaxed text-charcoal"
         >
           <AlertIcon className="mt-0.5 h-5 w-5 shrink-0" aria-hidden="true" />
           {errors.form}

@@ -44,7 +44,7 @@ export function Faq() {
                     {item.question}
                     <PlusMinusIcon
                       isOpen={isOpen}
-                      className={`h-5 w-5 ${isOpen ? 'text-salmon-deep' : 'text-charcoal'}`}
+                      className={`h-5 w-5 ${isOpen ? 'text-jade-ink' : 'text-charcoal'}`}
                     />
                   </button>
                 </h3>

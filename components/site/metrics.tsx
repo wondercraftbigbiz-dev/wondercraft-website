@@ -12,7 +12,7 @@ export function Metrics() {
     <section
       id="metrics"
       aria-labelledby="metrics-heading"
-      className="corrugation border-y border-border-soft bg-sage px-5 py-14 md:py-20"
+      className="corrugation corrugation-quiet border-y border-border-soft bg-jade px-5 py-14 md:py-20"
     >
       <div className="mx-auto w-full max-w-[1120px]">
         <h2 id="metrics-heading" className="sr-only">
@@ -29,7 +29,7 @@ export function Metrics() {
               <dt className="text-balance font-display text-2xl font-bold text-charcoal md:text-4xl">
                 {metric.value}
               </dt>
-              <dd className="mt-2 text-base text-charcoal-soft">
+              <dd className="mt-2 text-base text-charcoal">
                 {metric.label}
               </dd>
             </Reveal>

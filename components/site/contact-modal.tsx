@@ -125,7 +125,7 @@ export function ContactModal({
             {state.submit.status === 'error' && (
               <p
                 role="alert"
-                className="mt-4 flex items-start gap-2 rounded-md border border-salmon-deep bg-salmon/25 px-4 py-3 text-sm leading-relaxed text-charcoal"
+                className="mt-4 flex items-start gap-2 rounded-md border border-error bg-salmon-soft px-4 py-3 text-sm leading-relaxed text-charcoal"
               >
                 <AlertIcon className="mt-0.5 h-5 w-5 shrink-0" aria-hidden="true" />
                 {state.submit.message}
