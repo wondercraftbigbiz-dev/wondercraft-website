@@ -27,6 +27,13 @@ export type QuoteState =
 export type SubmitState =
   | { status: 'idle' }
   | { status: 'submitting' }
+  /**
+   * Accepted, and the browser is on its way to Stripe. Distinct from
+   * 'submitting' so the button can say where the customer is going, and stays
+   * disabled for the whole navigation rather than flicking back to idle.
+   */
+  | { status: 'redirecting' }
+  /** Saved unpaid — Econt could not price the delivery, so the shop calls. */
   | { status: 'done'; orderRef: string }
   | { status: 'error'; message: string }
 
@@ -46,6 +53,14 @@ export type DeliveryState = {
 }
 
 export type OrderState = {
+  /**
+   * This modal's payment attempt id.
+   *
+   * Minted once per open and sent with every submit, so a double-click or a
+   * retry after a network blip reaches Stripe and the database as the same
+   * attempt rather than as a second order. See isAttemptId in lib/order/schema.
+   */
+  attemptId: string
   firstName: string
   lastName: string
   email: string
@@ -102,13 +117,29 @@ export type Action =
     }
   | { type: 'quoteError'; message: string }
   | { type: 'submitStart' }
+  | { type: 'submitRedirect' }
   | { type: 'submitOk'; orderRef: string }
   | { type: 'submitError'; message: string }
 
 const IDLE_QUOTE: QuoteState = { status: 'idle' }
 
+/**
+ * randomUUID needs a secure context, which every deploy of this site is; the
+ * fallback exists so a plain-http preview degrades to a still-unique id rather
+ * than throwing in the middle of checkout.
+ */
+function newAttemptId(): string {
+  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
+    return crypto.randomUUID()
+  }
+  const hex = (n: number) =>
+    Array.from({ length: n }, () => Math.floor(Math.random() * 16).toString(16)).join('')
+  return `${hex(8)}-${hex(4)}-4${hex(3)}-a${hex(3)}-${hex(12)}`
+}
+
 export function initialOrderState(planId: PlanId): OrderState {
   return {
+    attemptId: newAttemptId(),
     firstName: '',
     lastName: '',
     email: '',
@@ -312,6 +343,9 @@ export function orderReducer(state: OrderState, action: Action): OrderState {
     case 'submitStart':
       return { ...state, submit: { status: 'submitting' } }
 
+    case 'submitRedirect':
+      return { ...state, submit: { status: 'redirecting' } }
+
     case 'submitOk':
       return { ...state, submit: { status: 'done', orderRef: action.orderRef } }
 
@@ -329,6 +363,7 @@ export function toOrderDraft(state: OrderState): OrderDraft {
     email: state.email,
     phone: state.phone,
     planId: state.planId,
+    attemptId: state.attemptId,
     printName: state.planId === 'custom' ? state.printName : undefined,
     customization: state.planId === 'custom' ? state.customization : undefined,
     message: state.message,

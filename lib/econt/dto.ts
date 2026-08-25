@@ -101,11 +101,21 @@ export type QuoteFailed = {
 
 export type QuoteResponse = QuoteOk | QuoteFailed
 
+/**
+ * An order the server accepted, and what the browser should do next.
+ *
+ * `redirectUrl` set — delivery was priced and a Stripe Checkout Session is
+ * waiting; send the customer there to pay.
+ * `redirectUrl` null — Econt could not price the delivery, so there is no total
+ * to charge. The order is saved unpaid and confirmed by phone, and `orderRef` is
+ * what the customer quotes on that call.
+ */
 export type OrderOk = {
   ok: true
   orderRef: string
   total: MoneyDto
   shipping: MoneyDto | null
+  redirectUrl: string | null
 }
 
 export type OrderFailed = {

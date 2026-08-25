@@ -3,8 +3,9 @@
 // Deliberately hand-rolled rather than zod: the surface is a dozen simple
 // fields, the messages have to be Bulgarian anyway, and the client imports this
 // module, so a schema library's bytes would land in the bundle for no gain. The
-// one thing zod would genuinely earn — parsing untrusted webhook JSON — does not
-// exist yet. When Stripe webhooks arrive, reimplement behind these signatures.
+// one thing zod would genuinely earn — parsing untrusted webhook JSON — is
+// handled where it arrives: app/api/stripe/webhook reads two fields off a
+// payload Stripe has already signed, and validates those two narrowly.
 //
 // No React and no server-only imports here, on purpose: both sides run the same
 // code, so a client that skips validation gets the identical messages back.
@@ -46,6 +47,20 @@ export const LIMITS = {
   message: 1000,
 } as const
 
+/**
+ * One payment attempt, identified by the browser.
+ *
+ * Minted per submit and carried all the way through: it is the Stripe
+ * idempotency key for creating the Checkout Session, and `orders.attempt_id`,
+ * which is uniquely indexed. So a double-click, a flaky retry or a refreshed
+ * request cannot produce two sessions or two orders — they collide on this.
+ */
+const ATTEMPT_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+export function isAttemptId(value: unknown): value is string {
+  return typeof value === 'string' && ATTEMPT_ID.test(value)
+}
+
 /** Contact details, as typed into the form. */
 export type ContactDraft = {
   firstName: string
@@ -56,6 +71,8 @@ export type ContactDraft = {
   printName?: string
   customization?: string
   message?: string
+  /** A v4 UUID minted per submit. See isAttemptId. */
+  attemptId?: string
 }
 
 /** Where it is going, as chosen in the form. */
@@ -216,6 +233,8 @@ export type OrderInput = {
   printName: string | null
   customization: string | null
   message: string | null
+  /** Null when the browser sent none — the order still stands, unprotected. */
+  attemptId: string | null
   delivery: DeliveryDraft & { cityId: number }
 }
 
@@ -252,6 +271,7 @@ export function validateOrder(
       printName: blankToNull(draft.printName),
       customization: blankToNull(draft.customization),
       message: blankToNull(draft.message),
+      attemptId: isAttemptId(draft.attemptId) ? draft.attemptId : null,
       delivery: { ...draft.delivery, cityId },
     },
   }
