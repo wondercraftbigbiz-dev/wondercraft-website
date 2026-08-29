@@ -2,6 +2,7 @@ import { Analytics } from '@vercel/analytics/next'
 import { SpeedInsights } from '@vercel/speed-insights/next'
 import type { Metadata, Viewport } from 'next'
 import { Inter, Playfair_Display } from 'next/font/google'
+import { AuthProvider } from '@/components/site/auth-context'
 import './globals.css'
 
 const inter = Inter({
@@ -66,7 +67,9 @@ export default function RootLayout({
   return (
     <html lang="bg" className={`${inter.variable} ${playfair.variable}`} suppressHydrationWarning>
       <body className="antialiased" suppressHydrationWarning>
-        {children}
+        <AuthProvider>
+          {children}
+        </AuthProvider>
         {process.env.NODE_ENV === 'production' && (
           <>
             <Analytics />

@@ -10,6 +10,7 @@ import {
 } from '@/lib/order/schema'
 import type { OrderResponse } from '@/lib/econt/dto'
 import { findPlan } from '@/lib/data/pricing'
+import { createClient } from '@/lib/supabase/client'
 import { DeliverySection } from './checkout/delivery-section'
 import { OrderSummary } from './checkout/order-summary'
 import { useShippingQuote } from './checkout/use-shipping-quote'
@@ -68,25 +69,76 @@ export function ContactModal({
 
     dispatch({ type: 'submitStart' })
     try {
-      const res = await fetch('/api/order', {
+      // First, persist the order details (contact + delivery) so they are
+      // available after the Stripe redirect. The order route logs and returns
+      // a reference; once the database write is wired in, this becomes the
+      // real persistence point.
+      const orderRes = await fetch('/api/order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(draft),
       })
-      const body = (await res.json()) as OrderResponse
+      const orderBody = (await orderRes.json()) as OrderResponse
 
-      if (body.ok) {
-        dispatch({ type: 'submitOk', orderRef: body.orderRef })
+      if (!orderBody.ok) {
+        if (orderBody.errors) dispatch({ type: 'setErrors', errors: orderBody.errors })
+        else if (orderBody.field) {
+          dispatch({ type: 'setErrors', errors: { [orderBody.field]: orderBody.message } as never })
+        }
+        dispatch({ type: 'submitError', message: orderBody.message })
         return
       }
 
-      // The server re-runs the same validator, so its field errors render
-      // through exactly the same error record as the client's own.
-      if (body.errors) dispatch({ type: 'setErrors', errors: body.errors })
-      else if (body.field) {
-        dispatch({ type: 'setErrors', errors: { [body.field]: body.message } as never })
+      // Then redirect to Stripe Checkout via the edge function.
+      const supabase = createClient()
+      const { data: sessionData } = await supabase.auth.getSession()
+      const accessToken = sessionData.session?.access_token
+
+      if (!accessToken) {
+        dispatch({
+          type: 'submitError',
+          message: 'Сесията ви е изтекла. Моля, влезте отново.',
+        })
+        return
       }
-      dispatch({ type: 'submitError', message: body.message })
+
+      const stripeRes = await fetch(
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/stripe-checkout`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${accessToken}`,
+          },
+          body: JSON.stringify({
+            price_id: plan?.stripePriceId,
+            mode: 'payment',
+            success_url: `${window.location.origin}/order/success`,
+            cancel_url: `${window.location.origin}/order/cancel`,
+          }),
+        },
+      )
+
+      if (!stripeRes.ok) {
+        const errBody = await stripeRes.json().catch(() => ({}))
+        dispatch({
+          type: 'submitError',
+          message: errBody.error ?? 'Не успяхме да стартираме плащането. Опитайте отново.',
+        })
+        return
+      }
+
+      const { url } = await stripeRes.json()
+
+      if (url) {
+        window.location.href = url
+        return
+      }
+
+      dispatch({
+        type: 'submitError',
+        message: 'Не успяхме да стартираме плащането. Опитайте отново.',
+      })
     } catch {
       dispatch({
         type: 'submitError',
