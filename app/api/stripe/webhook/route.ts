@@ -2,7 +2,7 @@ import 'server-only'
 
 import type Stripe from 'stripe'
 import { NextResponse } from 'next/server'
-import { logFailure } from '@/lib/econt/route-helpers'
+import { logPaymentFailure } from '@/lib/order/log'
 import { getStripe } from '@/lib/stripe/server'
 import { getSupabaseAdmin } from '@/lib/supabase/admin'
 
@@ -36,7 +36,7 @@ export async function POST(request: Request) {
   if (!secret) {
     // Not the caller's fault, and a 500 keeps Stripe retrying — which is what
     // we want, because the deploy is misconfigured and orders are stuck pending.
-    logFailure(new Error('STRIPE_WEBHOOK_SECRET is not set'))
+    logPaymentFailure('webhook.config', new Error('STRIPE_WEBHOOK_SECRET is not set'))
     return new NextResponse('Webhook secret not configured', { status: 500 })
   }
 
@@ -48,14 +48,14 @@ export async function POST(request: Request) {
   try {
     event = await getStripe().webhooks.constructEventAsync(body, signature, secret)
   } catch (error) {
-    logFailure(error)
+    logPaymentFailure('webhook.signature', error)
     return new NextResponse('Invalid signature', { status: 400 })
   }
 
   try {
     await handleEvent(event)
   } catch (error) {
-    logFailure(error)
+    logPaymentFailure(`webhook.handle.${event.type}`, error)
     // 500 so Stripe retries. Better a duplicate delivery — every path below is
     // idempotent — than an order that silently stays unpaid.
     return new NextResponse('Handler failed', { status: 500 })
@@ -137,7 +137,8 @@ async function settle(session: Stripe.Checkout.Session, eventId: string): Promis
     case 'amount_mismatch':
       // The RPC has already set payment_mismatch and written an admin note. Loud
       // here because it means what was paid is not what we priced.
-      logFailure(
+      logPaymentFailure(
+        'settle.amountMismatch',
         new Error(
           `Payment amount mismatch on session ${session.id}: Stripe reported ` +
             `${session.amount_total} ${session.currency}. Order flagged for review.`,
@@ -148,7 +149,10 @@ async function settle(session: Stripe.Checkout.Session, eventId: string): Promis
     case 'not_found':
       // No order carries this session id. Retrying cannot fix that, so do not
       // throw — a 500 would have Stripe redeliver this forever.
-      logFailure(new Error(`No order found for Checkout Session ${session.id}`))
+      logPaymentFailure(
+        'settle.orderNotFound',
+        new Error(`No order found for Checkout Session ${session.id}`),
+      )
       return
 
     default:
@@ -178,7 +182,10 @@ async function fail(
   // after the payment settled. The RPC refuses to unsettle it, which is right —
   // not an error.
   if (result === 'not_found') {
-    logFailure(new Error(`No order found for Checkout Session ${session.id}`))
+    logPaymentFailure(
+      'fail.orderNotFound',
+      new Error(`No order found for Checkout Session ${session.id}`),
+    )
     return
   }
 

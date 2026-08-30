@@ -7,6 +7,7 @@ import { logFailure } from '@/lib/econt/route-helpers'
 import { calculateShipping } from '@/lib/econt/shipping'
 import { getStripe, isStripeConfigured } from '@/lib/stripe/server'
 import { getSupabaseAdmin } from '@/lib/supabase/admin'
+import { logPaymentFailure } from './log'
 import type { OrderInput } from './schema'
 
 /**
@@ -157,7 +158,9 @@ export async function submitOrder(
       try {
         await getStripe().checkout.sessions.expire(sessionId)
       } catch (expireError) {
-        logFailure(expireError)
+        // The order row is gone but a payable session is live. Loudest of all
+        // the failures here: a customer could still pay into nothing.
+        logPaymentFailure('expireOrphanedSession', expireError)
       }
     }
     throw error
@@ -197,7 +200,7 @@ async function findExistingAttempt(
   if (error) {
     // A failed lookup must not block the sale; the worst case is a duplicate
     // order, which is visible and fixable. Losing the order is not.
-    logFailure(error)
+    logPaymentFailure('findExistingAttempt.select', error)
     return null
   }
   if (!data) return null
@@ -210,7 +213,7 @@ async function findExistingAttempt(
       )
       if (session.status === 'open') checkoutUrl = session.url
     } catch (error) {
-      logFailure(error)
+      logPaymentFailure('findExistingAttempt.retrieveSession', error)
     }
   }
 
@@ -357,7 +360,7 @@ async function persistOrder(record: {
     // invalid_email / missing_name / missing_phone (SQLSTATE 22023) are ours,
     // not the customer's: validateOrder already passed, so reaching them means
     // this mapping drifted from the validator.
-    logFailure(error)
+    logPaymentFailure('place_order', error)
     throw new Error(`place_order failed: ${error.message}`)
   }
 
