@@ -17,22 +17,19 @@ export type Parcel = {
   heightCm: number
 }
 
-// ============================================================================
-// TODO(owner): replace with values measured off a real packed (flat-pack) box.
-// Econt charges by weight and by volumetric weight, so wrong numbers here mean
-// wrong delivery prices at checkout — quoted too low, absorbed by us.
+// Measured off a real packed (flat-pack) box. Econt charges by weight AND by
+// volumetric weight, so these drive the delivery price the customer is quoted.
 //
-//   Measured by: ______________  on: ____________
+//   Measured by: owner  on: 2026-08-29
 //
-// Until every field is > 0, isParcelConfigured() returns false and the delivery
-// quote fails loudly (see lib/econt/shipping.ts) instead of sending weight: 0
-// to Econt and undercharging every order.
-// ============================================================================
+// Note: at 90 cm on the long side this cannot fit an Econt automat (АПС, max
+// 60x40x40), so canFitInAps() correctly hides that delivery option. If the
+// packaging ever shrinks below those limits the option reappears on its own.
 export const PACKED_PARCEL: Parcel = {
-  weightKg: 0, // TODO
-  lengthCm: 0, // TODO
-  widthCm: 0, // TODO
-  heightCm: 0, // TODO
+  weightKg: 5,
+  lengthCm: 90,
+  widthCm: 60,
+  heightCm: 20,
 }
 
 export function isParcelConfigured(parcel: Parcel = PACKED_PARCEL): boolean {
@@ -59,8 +56,6 @@ export type Plan = {
   /** Packed parcel used for the Econt delivery quote. */
   parcel: Parcel
   sku: string
-  /** Stripe price ID for one-time checkout. Replace with real IDs from Stripe dashboard. */
-  stripePriceId: string
 }
 
 export const plans: Plan[] = [
@@ -83,7 +78,6 @@ export const plans: Plan[] = [
     priceEurCents: 3000,
     parcel: PACKED_PARCEL,
     sku: 'WC-STD-01',
-    stripePriceId: 'price_standard_placeholder',
   },
   {
     id: 'custom',
@@ -104,7 +98,6 @@ export const plans: Plan[] = [
     priceEurCents: 4000,
     parcel: PACKED_PARCEL,
     sku: 'WC-CUS-01',
-    stripePriceId: 'price_custom_placeholder',
   },
 ]
 

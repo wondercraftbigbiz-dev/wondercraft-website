@@ -72,7 +72,15 @@ export type DeliveryDraft = {
   streetIsFreeform?: boolean
 }
 
-export type OrderDraft = ContactDraft & { delivery: DeliveryDraft }
+export type OrderDraft = ContactDraft & {
+  delivery: DeliveryDraft
+  /**
+   * Client-minted id for one payment attempt. Not validated here: it is not the
+   * customer's data and carries no message: the API route checks its shape and
+   * mints a replacement if it is missing or odd.
+   */
+  attemptId?: string
+}
 
 /**
  * Normalize a Bulgarian mobile number to E.164, or return null.

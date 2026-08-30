@@ -46,6 +46,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, message: 'Невалидна заявка.' }, { status: 400 })
   }
 
+  // One payment attempt, identified by the client so a retry of the same submit
+  // is recognisable. Never trusted beyond its shape: it keys a Stripe
+  // idempotency key and an equality lookup, so it is length-capped and
+  // character-restricted here. A missing or malformed one is replaced rather
+  // than rejected — the customer should not lose an order over it.
+  const attemptId = cleanAttemptId(draft.attemptId)
+
   // The same validator the browser ran, so a bypassed client gets the same
   // messages rather than a divergent second set.
   const { errors, value } = validateOrder({
@@ -128,6 +135,8 @@ export async function POST(request: Request) {
       office,
       rawCityId: value.delivery.cityId,
       rawOfficeCode: value.delivery.officeCode ?? null,
+      attemptId,
+      userAgent: request.headers.get('user-agent'),
     }
 
     const accepted = await submitOrder(value, context)
@@ -135,8 +144,12 @@ export async function POST(request: Request) {
     return json({
       ok: true,
       orderRef: accepted.orderRef,
+      orderNumber: accepted.orderNumber,
       total: toDto(accepted.total),
       shipping: accepted.shipping ? toDto(accepted.shipping) : null,
+      // Null means there is nothing to pay online yet — no delivery price, so
+      // the shop settles it by phone. The browser branches on exactly this.
+      checkoutUrl: accepted.checkoutUrl,
     })
   } catch (error) {
     logFailure(error)
@@ -148,6 +161,17 @@ export async function POST(request: Request) {
         'Нещо се обърка при изпращането. Опитайте отново или ни се обадете.',
     })
   }
+}
+
+/**
+ * Accept the client's attempt id only if it looks like one we would mint.
+ *
+ * It reaches Stripe as an idempotency key and the database as an indexed
+ * lookup, so anything unbounded or exotic is a liability for no benefit.
+ */
+function cleanAttemptId(raw: unknown): string {
+  const value = typeof raw === 'string' ? raw.trim() : ''
+  return /^[A-Za-z0-9-]{8,64}$/.test(value) ? value : crypto.randomUUID()
 }
 
 function toDto(money: Money): MoneyDto {

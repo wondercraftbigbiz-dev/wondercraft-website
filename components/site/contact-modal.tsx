@@ -10,7 +10,6 @@ import {
 } from '@/lib/order/schema'
 import type { OrderResponse } from '@/lib/econt/dto'
 import { findPlan } from '@/lib/data/pricing'
-import { createClient } from '@/lib/supabase/client'
 import { DeliverySection } from './checkout/delivery-section'
 import { OrderSummary } from './checkout/order-summary'
 import { useShippingQuote } from './checkout/use-shipping-quote'
@@ -40,6 +39,11 @@ export function ContactModal({
   const isCustom = planId === 'custom'
   const submitted = state.submit.status === 'done'
   const submitting = state.submit.status === 'submitting'
+  // Block submit while the delivery price is still being fetched. The total in
+  // the summary is not final yet, and the customer is about to be sent to a
+  // payment page — they should never be charged an amount they were not shown.
+  const quoting = state.quote.status === 'loading'
+  const busy = submitting || quoting
   const plan = findPlan(planId)
 
   useShippingQuote(state, dispatch)
@@ -60,7 +64,7 @@ export function ContactModal({
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
-    if (submitting) return
+    if (busy) return
 
     const draft = toOrderDraft(state)
     const next = { ...validateContact(draft), ...validateDelivery(draft.delivery) }
@@ -69,10 +73,10 @@ export function ContactModal({
 
     dispatch({ type: 'submitStart' })
     try {
-      // First, persist the order details (contact + delivery) so they are
-      // available after the Stripe redirect. The order route logs and returns
-      // a reference; once the database write is wired in, this becomes the
-      // real persistence point.
+      // One round trip. The server re-validates, re-prices against Econt, writes
+      // the order and — when there is a full amount to charge — opens the Stripe
+      // Checkout Session. Nothing about the price is decided here; the browser
+      // only learns where to send the customer next.
       const orderRes = await fetch('/api/order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -89,56 +93,15 @@ export function ContactModal({
         return
       }
 
-      // Then redirect to Stripe Checkout via the edge function.
-      const supabase = createClient()
-      const { data: sessionData } = await supabase.auth.getSession()
-      const accessToken = sessionData.session?.access_token
-
-      if (!accessToken) {
-        dispatch({
-          type: 'submitError',
-          message: 'Сесията ви е изтекла. Моля, влезте отново.',
-        })
+      // Paying online is possible only when the delivery price is known. When it
+      // is not, the order has still been taken and the shop settles delivery on
+      // the confirmation call — so show the success panel rather than an error.
+      if (orderBody.checkoutUrl) {
+        window.location.href = orderBody.checkoutUrl
         return
       }
 
-      const stripeRes = await fetch(
-        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/stripe-checkout`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${accessToken}`,
-          },
-          body: JSON.stringify({
-            price_id: plan?.stripePriceId,
-            mode: 'payment',
-            success_url: `${window.location.origin}/order/success`,
-            cancel_url: `${window.location.origin}/order/cancel`,
-          }),
-        },
-      )
-
-      if (!stripeRes.ok) {
-        const errBody = await stripeRes.json().catch(() => ({}))
-        dispatch({
-          type: 'submitError',
-          message: errBody.error ?? 'Не успяхме да стартираме плащането. Опитайте отново.',
-        })
-        return
-      }
-
-      const { url } = await stripeRes.json()
-
-      if (url) {
-        window.location.href = url
-        return
-      }
-
-      dispatch({
-        type: 'submitError',
-        message: 'Не успяхме да стартираме плащането. Опитайте отново.',
-      })
+      dispatch({ type: 'submitOk', orderRef: `WC-${orderBody.orderNumber}` })
     } catch {
       dispatch({
         type: 'submitError',
@@ -173,13 +136,17 @@ export function ContactModal({
             <button
               type="submit"
               form="order-form"
-              disabled={submitting}
+              disabled={busy}
               className="mt-4 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-md border border-border-soft bg-salmon px-6 py-3 font-sans text-base font-semibold text-charcoal shadow-soft transition-all duration-200 ease-[cubic-bezier(0.34,1.56,0.64,1)] hover:-translate-y-0.5 hover:scale-[1.02] hover:bg-salmon-hover hover:shadow-soft-lg active:scale-[0.96] active:duration-100 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0 disabled:hover:scale-100"
             >
-              {submitting && (
+              {busy && (
                 <SpinnerIcon className="h-4 w-4 animate-spin" aria-hidden="true" />
               )}
-              {submitting ? 'Изпращаме…' : 'Поръчай сега'}
+              {submitting
+                ? 'Изпращаме…'
+                : quoting
+                  ? 'Изчисляваме доставката…'
+                  : 'Поръчай сега'}
             </button>
             <p className="mt-3 text-center text-sm text-charcoal-soft">
               Ще се свържем с вас, за да потвърдим детайлите.
