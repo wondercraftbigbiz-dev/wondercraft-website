@@ -5,6 +5,7 @@ import { addMoney, eur, toEur, type Money } from '@/lib/money'
 import type { CityDto, DeliveryDto, OfficeDto } from '@/lib/econt/dto'
 import { logFailure } from '@/lib/econt/route-helpers'
 import { calculateShipping } from '@/lib/econt/shipping'
+import { getSupabaseAdmin } from '@/lib/supabase-admin'
 import type { OrderInput } from './schema'
 
 /**
@@ -108,60 +109,38 @@ async function persistOrder(record: {
   quoteId: string | null
 }): Promise<void> {
   const { orderRef, input, context } = record
-
-  // Order shape and money: safe to keep, useful for debugging pricing.
-  console.log(
-    JSON.stringify({
-      evt: 'order.received',
-      orderRef,
-      planId: input.planId,
-      sku: findPlan(input.planId)?.sku,
-      delivery: {
-        type: input.delivery.type,
-        cityId: context.city?.id ?? context.rawCityId,
-        cityName: context.city?.name ?? null,
-        postCode: context.city?.postCode ?? null,
-        officeCode: context.office?.code ?? context.rawOfficeCode ?? null,
-        street: blank(input.delivery.street),
-        streetNum: blank(input.delivery.streetNum),
-        quarter: blank(input.delivery.quarter),
-        // True when Econt was unreachable, so the destination is unverified and
-        // the names above are missing. Flags the orders that need a careful
-        // phone call.
-        unverified: context.city === null,
-      },
-      money: {
-        productEurCents: record.product.cents,
-        shippingEurCents: record.shipping?.cents ?? null,
-        totalEurCents: record.total.cents,
-        quoteId: record.quoteId,
-      },
-      at: new Date().toISOString(),
-    }),
-  )
-
-  // Personal data on a separate line, deliberately.
-  //
-  // TODO(privacy): this is a stopgap until the database exists. Names, phone
-  // numbers and addresses in application logs have a retention life of their own
-  // that nobody manages — splitting the lines means this one can be dropped or
-  // routed differently without losing the order record above. Remove it the
-  // moment persistOrder actually persists.
-  console.log(
-    JSON.stringify({
-      evt: 'order.contact',
-      orderRef,
-      name: input.name,
-      email: input.email,
-      phone: input.phone,
-      printName: input.printName,
-      customization: input.customization,
-      message: input.message,
+  const { error } = await getSupabaseAdmin().from('application_orders').insert({
+    order_ref: orderRef,
+    plan_id: input.planId,
+    customer_name: input.name,
+    email: input.email,
+    phone: input.phone,
+    delivery: {
+      type: input.delivery.type,
+      cityId: context.city?.id ?? context.rawCityId,
+      cityName: context.city?.name ?? null,
+      postCode: context.city?.postCode ?? null,
+      officeCode: context.office?.code ?? context.rawOfficeCode ?? null,
+      street: blank(input.delivery.street),
+      streetNum: blank(input.delivery.streetNum),
+      quarter: blank(input.delivery.quarter),
       floor: blank(input.delivery.floor),
       apt: blank(input.delivery.apt),
       note: blank(input.delivery.note),
-    }),
-  )
+      unverified: context.city === null,
+      quoteId: record.quoteId,
+    },
+    customization: {
+      printName: input.printName,
+      customization: input.customization,
+      message: input.message,
+    },
+    product_amount: record.product.cents,
+    shipping_amount: record.shipping?.cents ?? null,
+    total_amount: record.total.cents,
+    currency: record.total.currency,
+  })
+  if (error) throw new Error(`Could not persist order: ${error.message}`)
 }
 
 /** TODO(next phase): email the shop, and confirm to the customer. */

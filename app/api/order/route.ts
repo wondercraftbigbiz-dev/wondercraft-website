@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getAppUrl, getStripe, randomIntegrationSuffix, toStripeAmount } from '@/lib/stripe'
+import { getSupabaseAdmin } from '@/lib/supabase-admin'
 import type { MoneyDto, OrderResponse } from '@/lib/econt/dto'
 import { isDeliveryType } from '@/lib/econt/dto'
 import { findCity, findOffice } from '@/lib/econt/nomenclatures'
@@ -157,6 +158,12 @@ export async function POST(request: Request) {
     )
 
     if (!session.url) throw new Error('Stripe did not return a checkout URL')
+
+    const { error: linkError } = await getSupabaseAdmin()
+      .from('application_orders')
+      .update({ stripe_checkout_session_id: session.id })
+      .eq('order_ref', accepted.orderRef)
+    if (linkError) throw new Error(`Could not link checkout session: ${linkError.message}`)
 
     return json({
       ok: true,
