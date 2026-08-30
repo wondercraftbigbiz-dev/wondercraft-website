@@ -1,4 +1,6 @@
 import { NextResponse } from 'next/server'
+import { getAppUrl, getStripe, randomIntegrationSuffix, toStripeAmount } from '@/lib/stripe'
+import { getSupabaseAdmin } from '@/lib/supabase-admin'
 import type { MoneyDto, OrderResponse } from '@/lib/econt/dto'
 import { isDeliveryType } from '@/lib/econt/dto'
 import { findCity, findOffice } from '@/lib/econt/nomenclatures'
@@ -131,10 +133,42 @@ export async function POST(request: Request) {
     }
 
     const accepted = await submitOrder(value, context)
+    const stripe = getStripe()
+    const appUrl = getAppUrl(request)
+    const session = await stripe.checkout.sessions.create(
+      {
+        mode: 'payment',
+        customer_email: value.email,
+        line_items: [
+          {
+            price_data: {
+              currency: 'eur',
+              product_data: { name: accepted.plan.name },
+              unit_amount: toStripeAmount(accepted.total.cents),
+            },
+            quantity: 1,
+          },
+        ],
+        success_url: `${appUrl}/order/success?orderRef=${encodeURIComponent(accepted.orderRef)}&session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${appUrl}/order/cancel?orderRef=${encodeURIComponent(accepted.orderRef)}`,
+        metadata: { orderRef: accepted.orderRef, planId: value.planId },
+        integration_identifier: `wondercraft_checkout_${randomIntegrationSuffix()}`,
+      },
+      { idempotencyKey: `order_${accepted.orderRef}` },
+    )
+
+    if (!session.url) throw new Error('Stripe did not return a checkout URL')
+
+    const { error: linkError } = await getSupabaseAdmin()
+      .from('application_orders')
+      .update({ stripe_checkout_session_id: session.id })
+      .eq('order_ref', accepted.orderRef)
+    if (linkError) throw new Error(`Could not link checkout session: ${linkError.message}`)
 
     return json({
       ok: true,
       orderRef: accepted.orderRef,
+      checkoutUrl: session.url,
       total: toDto(accepted.total),
       shipping: accepted.shipping ? toDto(accepted.shipping) : null,
     })

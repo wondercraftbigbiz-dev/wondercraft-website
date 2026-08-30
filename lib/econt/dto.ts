@@ -106,6 +106,7 @@ export type OrderOk = {
   orderRef: string
   total: MoneyDto
   shipping: MoneyDto | null
+  checkoutUrl: string
 }
 
 export type OrderFailed = {
