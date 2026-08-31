@@ -13,6 +13,7 @@ export function AuthModal({ onClose }: { onClose: () => void }) {
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [confirmationSent, setConfirmationSent] = useState(false)
   const emailRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -25,12 +26,25 @@ export function AuthModal({ onClose }: { onClose: () => void }) {
 
     setLoading(true)
     setError(null)
+    setConfirmationSent(false)
 
     try {
       const supabase = createClient()
       if (mode === 'signup') {
-        const { error } = await supabase.auth.signUp({ email, password })
+        const { data, error } = await supabase.auth.signUp({
+          email: email.trim().toLowerCase(),
+          password,
+          options: {
+            emailRedirectTo:
+              process.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL ??
+              `${window.location.origin}/auth/callback`,
+          },
+        })
         if (error) throw error
+        if (!data.session) {
+          setConfirmationSent(true)
+          return
+        }
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password })
         if (error) throw error
@@ -58,9 +72,11 @@ export function AuthModal({ onClose }: { onClose: () => void }) {
       >
         <div className="flex flex-col gap-4">
           <p className="text-sm leading-relaxed text-charcoal-soft">
-            {mode === 'signin'
-              ? 'Влезте в профила си, за да продължите към плащане.'
-              : 'Създайте профил, за да поръчате къщичката.'}
+            {confirmationSent
+              ? 'Изпратихме ви линк за потвърждение. Проверете имейла си, за да активирате профила.'
+              : mode === 'signin'
+                ? 'Влезте в профила си, за да продължите към плащане.'
+                : 'Създайте профил, за да поръчате къщичката.'}
           </p>
 
           <div>
@@ -106,7 +122,7 @@ export function AuthModal({ onClose }: { onClose: () => void }) {
             </p>
           )}
 
-          <button
+          {!confirmationSent && <button
             type="submit"
             form="auth-form"
             disabled={loading}
@@ -114,7 +130,7 @@ export function AuthModal({ onClose }: { onClose: () => void }) {
           >
             {loading && <SpinnerIcon className="h-4 w-4 animate-spin" aria-hidden="true" />}
             {loading ? 'Моля, изчакайте…' : mode === 'signin' ? 'Вход' : 'Регистрация'}
-          </button>
+          </button>}
 
           <button
             type="button"
@@ -143,7 +159,13 @@ function translateAuthError(message: string): string {
     return 'Невалиден имейл или парола.'
   if (/user already registered/i.test(message))
     return 'Вече има регистриран профил с този имейл. Влезте вместо да се регистрирате.'
-  if (/password should be at least/i.test(message))
+  if (/password should be at least|weak password/i.test(message))
     return 'Паролата трябва да е поне 6 символа.'
+  if (/invalid email|email_address_invalid/i.test(message))
+    return 'Въведете валиден имейл адрес.'
+  if (/rate limit|too many requests|over_email_send_rate_limit/i.test(message))
+    return 'Опитите са твърде много. Изчакайте малко и опитайте отново.'
+  if (/email not confirmed/i.test(message))
+    return 'Потвърдете имейла си от полученото съобщение, преди да влезете.'
   return 'Нещо се обърка. Опитайте отново.'
 }
