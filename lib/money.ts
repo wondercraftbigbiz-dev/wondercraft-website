@@ -72,10 +72,10 @@ function formatter(currency: Currency, whole: boolean): Intl.NumberFormat {
 
 /**
  * Bulgarian convention, straight from ICU: comma decimal, symbol after the
- * number — "58,67 лв." and "30,00 €".
+ * number — "68,45 лв." and "35,00 €".
  *
  * `trimZeroCents` drops ".00" for round amounts, which is how the marketing
- * copy already reads ("30 €"). Use it for headline prices, not for totals a
+ * copy already reads ("35 €"). Use it for headline prices, not for totals a
  * customer will reconcile against a receipt.
  */
 export function formatMoney(

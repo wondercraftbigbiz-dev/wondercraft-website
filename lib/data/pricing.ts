@@ -47,8 +47,8 @@ export function isParcelConfigured(parcel: Parcel = PACKED_PARCEL): boolean {
 export type Plan = {
   id: 'standard' | 'custom'
   name: string
-  lev: string // primary price, e.g. "60 лв."
-  euro: string // secondary price, e.g. "30,67 €"
+  lev: string // primary price, e.g. "68,45 лв."
+  euro: string // secondary price, e.g. "35 €"
   tagline: string
   features: string[]
   featured: boolean
@@ -67,8 +67,8 @@ export const plans: Plan[] = [
   {
     id: 'standard',
     name: 'Стандартен',
-    lev: '58,67 лв.',
-    euro: '30 €',
+    lev: '68,45 лв.',
+    euro: '35 €',
     tagline: 'Класическата къщичка, готова за игра.',
     features: [
       '100% рециклиран картон',
@@ -80,7 +80,7 @@ export const plans: Plan[] = [
     featured: false,
     image: '/images/model-standard.webp',
     imageAlt: 'Стандартна картонена къщичка за игра',
-    priceEurCents: 3000,
+    priceEurCents: 3500,
     parcel: PACKED_PARCEL,
     sku: 'WC-STD-01',
     stripePriceId: 'price_standard_placeholder',
@@ -88,8 +88,8 @@ export const plans: Plan[] = [
   {
     id: 'custom',
     name: 'Персонализиран',
-    lev: '78,23 лв.',
-    euro: '40 €',
+    lev: '88,01 лв.',
+    euro: '45 €',
     tagline: 'С името на детето, отпечатано върху къщичката.',
     features: [
       'Всичко от стандартния модел',
@@ -101,7 +101,7 @@ export const plans: Plan[] = [
     featured: true,
     image: '/images/model-custom.webp',
     imageAlt: 'Персонализирана картонена къщичка с име на детето',
-    priceEurCents: 4000,
+    priceEurCents: 4500,
     parcel: PACKED_PARCEL,
     sku: 'WC-CUS-01',
     stripePriceId: 'price_custom_placeholder',
@@ -110,11 +110,11 @@ export const plans: Plan[] = [
 
 // The lowest price, used in hero and metadata copy.
 export const startingPrice = {
-  lev: '58,67 лв.',
-  euro: '30 €',
+  lev: '68,45 лв.',
+  euro: '35 €',
 }
 
-export const startingPriceEurCents = 3000
+export const startingPriceEurCents = 3500
 
 export type PlanId = Plan['id']
 

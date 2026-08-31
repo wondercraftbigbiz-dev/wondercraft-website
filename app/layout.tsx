@@ -3,6 +3,8 @@ import { SpeedInsights } from '@vercel/speed-insights/next'
 import type { Metadata, Viewport } from 'next'
 import { Inter, Playfair_Display } from 'next/font/google'
 import { AuthProvider } from '@/components/site/auth-context'
+import { startingPriceEurCents } from '@/lib/data/pricing'
+import { eur, formatDual } from '@/lib/money'
 import './globals.css'
 
 const inter = Inter({
@@ -23,10 +25,17 @@ const playfair = Playfair_Display({
   display: 'swap',
 })
 
+// Built from lib/data/pricing.ts so the meta description can never drift from
+// the price on the page.
+const startingDual = formatDual(eur(startingPriceEurCents), {
+  trimZeroCents: true,
+}).both
+
+const description = `Къщичка за игра от 100% рециклиран картон. Сглобява се за 15 минути без инструменти и се прибира плоско. От ${startingDual}.`
+
 export const metadata: Metadata = {
   title: 'Wondercraft Toy Factory',
-  description:
-    'Къщичка за игра от 100% рециклиран картон. Сглобява се за 15 минути без инструменти и се прибира плоско. От 30 € (58,67 лв.).',
+  description,
   generator: 'v0.app',
   metadataBase: new URL('https://wondercraft.example'),
   alternates: {
@@ -37,8 +46,7 @@ export const metadata: Metadata = {
   },
   openGraph: {
     title: 'Wondercraft Toy Factory',
-    description:
-      'Къщичка за игра от 100% рециклиран картон. Сглобява се за 15 минути без инструменти и се прибира плоско. От 30 € (58,67 лв.).',
+    description,
     type: 'website',
     locale: 'bg_BG',
     images: [
