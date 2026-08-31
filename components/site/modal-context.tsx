@@ -1,10 +1,8 @@
 'use client'
 
-import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
+import { createContext, useCallback, useContext, useRef, useState } from 'react'
 import type { Plan } from '@/lib/data/pricing'
 import { ContactModal } from './contact-modal'
-import { AuthModal } from './auth-modal'
-import { useAuth } from './auth-context'
 
 type ModelId = Plan['id']
 
@@ -20,44 +18,23 @@ export function useContactModal() {
   return ctx
 }
 
-type ModalState =
-  | { kind: 'closed' }
-  | { kind: 'contact'; model: ModelId }
-  | { kind: 'auth'; pendingModel: ModelId }
+type ModalState = { kind: 'closed' } | { kind: 'contact'; model: ModelId }
 
 /**
- * Owns both the contact/order modal and the auth modal.
+ * Owns the contact/order modal.
  *
- * When the visitor clicks "Поръчай сега", this checks the auth session first.
- * If signed in, the contact modal opens directly. If not, the auth modal opens
- * instead; after a successful sign-in, the contact modal opens automatically.
+ * Ordering is deliberately anonymous: "Поръчай сега" opens the form directly.
+ * The orders table keys customers by email, not by an auth user, so there is
+ * nothing an account would buy the visitor at this point in the funnel.
  */
 export function ModalProvider({ children }: { children: React.ReactNode }) {
-  const { session, loading } = useAuth()
   const [modalState, setModalState] = useState<ModalState>({ kind: 'closed' })
   const triggerRef = useRef<HTMLElement | null>(null)
 
-  const open = useCallback(
-    (selected: ModelId = 'standard') => {
-      triggerRef.current = document.activeElement as HTMLElement | null
-
-      if (session) {
-        setModalState({ kind: 'contact', model: selected })
-      } else {
-        setModalState({ kind: 'auth', pendingModel: selected })
-      }
-    },
-    [session],
-  )
-
-  // Once auth finishes loading and the user has a session, if the auth modal
-  // was open, switch to the contact modal with the pending model.
-  useEffect(() => {
-    if (loading) return
-    if (session && modalState.kind === 'auth') {
-      setModalState({ kind: 'contact', model: modalState.pendingModel })
-    }
-  }, [session, loading, modalState])
+  const open = useCallback((selected: ModelId = 'standard') => {
+    triggerRef.current = document.activeElement as HTMLElement | null
+    setModalState({ kind: 'contact', model: selected })
+  }, [])
 
   const close = useCallback(() => {
     setModalState({ kind: 'closed' })
@@ -67,7 +44,6 @@ export function ModalProvider({ children }: { children: React.ReactNode }) {
   return (
     <ModalContext.Provider value={{ open }}>
       {children}
-      {modalState.kind === 'auth' && <AuthModal onClose={close} />}
       {modalState.kind === 'contact' && (
         <ContactModal initialModel={modalState.model} onClose={close} />
       )}

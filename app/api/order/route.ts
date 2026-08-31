@@ -1,6 +1,4 @@
 import { NextResponse } from 'next/server'
-import { getAppUrl, getStripe, randomIntegrationSuffix, toStripeAmount } from '@/lib/stripe'
-import { getSupabaseAdmin } from '@/lib/supabase-admin'
 import type { MoneyDto, OrderResponse } from '@/lib/econt/dto'
 import { isDeliveryType } from '@/lib/econt/dto'
 import { findCity, findOffice } from '@/lib/econt/nomenclatures'
@@ -47,6 +45,13 @@ export async function POST(request: Request) {
   if (!draft?.delivery || !isDeliveryType(draft.delivery.type)) {
     return NextResponse.json({ ok: false, message: 'Невалидна заявка.' }, { status: 400 })
   }
+
+  // One payment attempt, identified by the client so a retry of the same submit
+  // is recognisable. Never trusted beyond its shape: it keys a Stripe
+  // idempotency key and an equality lookup, so it is length-capped and
+  // character-restricted here. A missing or malformed one is replaced rather
+  // than rejected — the customer should not lose an order over it.
+  const attemptId = cleanAttemptId(draft.attemptId)
 
   // The same validator the browser ran, so a bypassed client gets the same
   // messages rather than a divergent second set.
@@ -130,47 +135,21 @@ export async function POST(request: Request) {
       office,
       rawCityId: value.delivery.cityId,
       rawOfficeCode: value.delivery.officeCode ?? null,
+      attemptId,
+      userAgent: request.headers.get('user-agent'),
     }
 
     const accepted = await submitOrder(value, context)
-    const stripe = getStripe()
-    const appUrl = getAppUrl(request)
-    const session = await stripe.checkout.sessions.create(
-      {
-        mode: 'payment',
-        customer_email: value.email,
-        line_items: [
-          {
-            price_data: {
-              currency: 'eur',
-              product_data: { name: accepted.plan.name },
-              unit_amount: toStripeAmount(accepted.total.cents),
-            },
-            quantity: 1,
-          },
-        ],
-        success_url: `${appUrl}/order/success?orderRef=${encodeURIComponent(accepted.orderRef)}&session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: `${appUrl}/order/cancel?orderRef=${encodeURIComponent(accepted.orderRef)}`,
-        metadata: { orderRef: accepted.orderRef, planId: value.planId },
-        integration_identifier: `wondercraft_checkout_${randomIntegrationSuffix()}`,
-      },
-      { idempotencyKey: `order_${accepted.orderRef}` },
-    )
-
-    if (!session.url) throw new Error('Stripe did not return a checkout URL')
-
-    const { error: linkError } = await getSupabaseAdmin()
-      .from('application_orders')
-      .update({ stripe_checkout_session_id: session.id })
-      .eq('order_ref', accepted.orderRef)
-    if (linkError) throw new Error(`Could not link checkout session: ${linkError.message}`)
 
     return json({
       ok: true,
       orderRef: accepted.orderRef,
-      checkoutUrl: session.url,
+      orderNumber: accepted.orderNumber,
       total: toDto(accepted.total),
       shipping: accepted.shipping ? toDto(accepted.shipping) : null,
+      // Null means there is nothing to pay online yet — no delivery price, so
+      // the shop settles it by phone. The browser branches on exactly this.
+      checkoutUrl: accepted.checkoutUrl,
     })
   } catch (error) {
     logFailure(error)
@@ -182,6 +161,17 @@ export async function POST(request: Request) {
         'Нещо се обърка при изпращането. Опитайте отново или ни се обадете.',
     })
   }
+}
+
+/**
+ * Accept the client's attempt id only if it looks like one we would mint.
+ *
+ * It reaches Stripe as an idempotency key and the database as an indexed
+ * lookup, so anything unbounded or exotic is a liability for no benefit.
+ */
+function cleanAttemptId(raw: unknown): string {
+  const value = typeof raw === 'string' ? raw.trim() : ''
+  return /^[A-Za-z0-9-]{8,64}$/.test(value) ? value : crypto.randomUUID()
 }
 
 function toDto(money: Money): MoneyDto {

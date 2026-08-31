@@ -104,9 +104,15 @@ export type QuoteResponse = QuoteOk | QuoteFailed
 export type OrderOk = {
   ok: true
   orderRef: string
+  /** The database's sequential reference, shown to the customer. */
+  orderNumber: number
   total: MoneyDto
   shipping: MoneyDto | null
-  checkoutUrl: string
+  /**
+   * Where to send the browser to pay. Null when there is nothing payable — no
+   * delivery quote, so no honest total — and the shop confirms by phone instead.
+   */
+  checkoutUrl: string | null
 }
 
 export type OrderFailed = {

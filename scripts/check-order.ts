@@ -4,6 +4,9 @@
 
 import assert from 'node:assert/strict'
 import { VCity, vCity } from '../lib/bg.ts'
+import { canFitInAps } from '../lib/econt/constraints.ts'
+import { PACKED_PARCEL, findPlan, plans } from '../lib/data/pricing.ts'
+import { addMoney, eur, toBgn } from '../lib/money.ts'
 import {
   LIMITS,
   hasErrors,
@@ -203,5 +206,70 @@ assert.equal(vCity('Велико Търново'), 'във Велико Търн
 assert.equal(vCity('Фотиново'), 'във Фотиново')
 assert.equal(VCity('Варна'), 'Във Варна')
 assert.equal(VCity('Пловдив'), 'В Пловдив')
+
+// --- What Stripe gets charged ----------------------------------------------
+// The Checkout Session is built from the server's catalogue, never from the
+// browser. These pin the two numbers that reach Stripe, because getting either
+// wrong means charging a customer an amount nobody agreed to.
+for (const plan of plans) {
+  const product = eur(plan.priceEurCents)
+  assert.equal(
+    product.cents,
+    plan.priceEurCents,
+    `${plan.id}: line item must be the catalogue price, in cents`,
+  )
+  assert.equal(product.currency, 'EUR')
+  assert.ok(Number.isInteger(product.cents) && product.cents > 0)
+}
+
+assert.equal(findPlan('standard')?.priceEurCents, 3000)
+assert.equal(findPlan('custom')?.priceEurCents, 4000)
+
+// place_order takes numeric euros and leva; the app works in integer cents.
+// That conversion happens in exactly one place (persistOrder) and must survive
+// the round trip, or the generated total_eur column disagrees with the amount
+// Stripe collected and mark_order_paid flags every order as a mismatch.
+for (const plan of plans) {
+  for (const shippingCents of [0, 550, 770, 1020, 1]) {
+    const product = eur(plan.priceEurCents)
+    const shipping = eur(shippingCents)
+    const total = addMoney(product, shipping)
+
+    // What we send the database, and what it computes from it.
+    const unitEur = product.cents / 100
+    const shipEur = shipping.cents / 100
+    const dbTotal = unitEur * 1 + shipEur
+
+    assert.equal(
+      Math.round(dbTotal * 100),
+      total.cents,
+      `${plan.id}+${shippingCents}: db total must equal the amount charged`,
+    )
+    // total_bgn is a generated column: round(total_eur * 1.95583, 2). Postgres
+    // rounds numeric half away from zero, which is what toBgn does, so the lev
+    // figure on an invoice must match the one the page showed.
+    const dbBgnStotinki = Math.round(dbTotal * 1.95583 * 100)
+    assert.equal(
+      toBgn(total).cents,
+      dbBgnStotinki,
+      `${plan.id}+${shippingCents}: lev total must match the generated column`,
+    )
+  }
+}
+
+// --- Automat fits ----------------------------------------------------------
+// The packed box is 90 cm on its long side; an Econt automat tops out at 60.
+// If this ever passes, the delivery form is offering customers a locker their
+// parcel cannot physically go into.
+assert.equal(
+  canFitInAps(PACKED_PARCEL),
+  false,
+  'the 90x60x20 packed box must not be offered automat delivery',
+)
+// The rule is about size, not the constant: a small box still fits.
+assert.equal(
+  canFitInAps({ weightKg: 2, lengthCm: 40, widthCm: 30, heightCm: 20 }),
+  true,
+)
 
 console.log('check-order: all assertions passed')

@@ -46,6 +46,14 @@ export type DeliveryState = {
 }
 
 export type OrderState = {
+  /**
+   * Identifies one payment attempt, minted once when the form opens and stable
+   * across every retry within it. The server uses it as the Stripe idempotency
+   * key and as the duplicate-order lookup, so a customer who double-clicks, or
+   * who comes back from a cancelled Stripe page and submits again, gets the
+   * same order and the same payment session rather than a second of each.
+   */
+  attemptId: string
   firstName: string
   lastName: string
   email: string
@@ -107,8 +115,21 @@ export type Action =
 
 const IDLE_QUOTE: QuoteState = { status: 'idle' }
 
+/**
+ * randomUUID needs a secure context, which every real page here has, but not
+ * every test or embedded webview does. The fallback only has to be unique
+ * enough to distinguish concurrent attempts, not unguessable.
+ */
+function newAttemptId(): string {
+  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
+    return crypto.randomUUID()
+  }
+  return `a-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`
+}
+
 export function initialOrderState(planId: PlanId): OrderState {
   return {
+    attemptId: newAttemptId(),
     firstName: '',
     lastName: '',
     email: '',
@@ -332,6 +353,7 @@ export function toOrderDraft(state: OrderState): OrderDraft {
     printName: state.planId === 'custom' ? state.printName : undefined,
     customization: state.planId === 'custom' ? state.customization : undefined,
     message: state.message,
+    attemptId: state.attemptId,
     delivery: {
       type: d.type,
       cityId: d.city?.id ?? null,

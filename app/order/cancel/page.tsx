@@ -1,5 +1,14 @@
 import Link from 'next/link'
 
+/**
+ * Where Stripe returns a customer who backed out of paying.
+ *
+ * The order row already exists and stays 'pending' until the session expires,
+ * at which point the webhook marks it cancelled. Nothing is created or changed
+ * here — retrying is just reopening the form, and because the attempt id is
+ * minted per form open, a retry produces a fresh order rather than editing this
+ * one.
+ */
 export const metadata = {
   title: 'Поръчката е отменена — Wondercraft',
 }
@@ -12,7 +21,9 @@ export default function OrderCancelPage() {
           Плащането е отменено
         </h1>
         <p className="mt-4 text-base leading-relaxed text-charcoal-soft">
-          Поръчката не е завършена. Можете да опитате отново, когато сте готови.
+          Не сме взели плащане. Поръчката не е завършена — можете да опитате
+          отново, когато сте готови, или да ни се обадите и да я потвърдим по
+          телефона.
         </p>
         <Link
           href="/"
