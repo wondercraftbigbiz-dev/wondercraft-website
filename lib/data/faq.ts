@@ -1,6 +1,18 @@
+import { eur, formatMoney, toBgn } from '@/lib/money'
+import { findPlan, type PlanId } from './pricing'
+
 export type FaqItem = {
   question: string
   answer: string
+}
+
+// Prices come from lib/data/pricing.ts — never retype them here, or this answer
+// silently goes stale the next time a price moves.
+function priceText(id: PlanId): string {
+  const plan = findPlan(id)
+  if (!plan) throw new Error(`faq: unknown plan "${id}"`)
+  const price = eur(plan.priceEurCents)
+  return `${formatMoney(toBgn(price))} / ${formatMoney(price, { trimZeroCents: true })}`
 }
 
 export const faqItems: FaqItem[] = [
@@ -32,7 +44,7 @@ export const faqItems: FaqItem[] = [
   {
     question: 'Колко струва?',
     answer:
-      'Стандартният модел е 58,67 лв. / 30 €. Персонализираният с име на детето е 78,23 лв. / 40 €.',
+      `Стандартният модел е ${priceText('standard')}. Персонализираният с име на детето е ${priceText('custom')}.`,
   },
   {
     question: 'Как да поръчам?',

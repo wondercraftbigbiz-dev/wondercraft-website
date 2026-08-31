@@ -37,17 +37,17 @@ function money(m: Parameters<typeof formatMoney>[0], trim = false): string {
 assert.equal(BGN_PER_EUR, 1.95583)
 
 // --- Formatting matches the site's existing copy ----------------------------
-assert.equal(money(eur(3000)), '30,00 €')
-assert.equal(money(eur(3000), true), '30 €')
-assert.equal(money(eur(4000), true), '40 €')
-assert.equal(money(bgn(5867)), '58,67 лв.')
-assert.equal(money(bgn(7823)), '78,23 лв.')
+assert.equal(money(eur(3500)), '35,00 €')
+assert.equal(money(eur(3500), true), '35 €')
+assert.equal(money(eur(4500), true), '45 €')
+assert.equal(money(bgn(6845)), '68,45 лв.')
+assert.equal(money(bgn(8801)), '88,01 лв.')
 // trimZeroCents must NOT trim a non-round amount.
-assert.equal(money(bgn(5867), true), '58,67 лв.')
+assert.equal(money(bgn(6845), true), '68,45 лв.')
 
 // --- Conversion -------------------------------------------------------------
-assert.equal(toBgn(eur(3000)).cents, 5867) // 30 × 1.95583 = 58.6749
-assert.equal(toBgn(eur(4000)).cents, 7823) // 40 × 1.95583 = 78.2332
+assert.equal(toBgn(eur(3500)).cents, 6845) // 35 × 1.95583 = 68.45405
+assert.equal(toBgn(eur(4500)).cents, 8801) // 45 × 1.95583 = 88.01235
 assert.equal(toBgn(bgn(1234)).cents, 1234) // no-op when already BGN
 assert.equal(toEur(eur(1234)).cents, 1234)
 
@@ -62,7 +62,7 @@ for (let c = 0; c <= 100_000; c += 7) {
 }
 
 // --- Arithmetic -------------------------------------------------------------
-assert.equal(addMoney(eur(3000), eur(690)).cents, 3690)
+assert.equal(addMoney(eur(3500), eur(690)).cents, 4190)
 assert.throws(
   () => addMoney(eur(100), bgn(100)),
   /currency mismatch/,
@@ -71,10 +71,10 @@ assert.throws(
 
 // --- Dual display -----------------------------------------------------------
 assert.equal(
-  formatDual(eur(3000), { trimZeroCents: true }).both.replace(/ /g, ' '),
-  '30 € (58,67 лв.)',
+  formatDual(eur(3500), { trimZeroCents: true }).both.replace(/ /g, ' '),
+  '35 € (68,45 лв.)',
 )
-assert.equal(formatDual(bgn(5867)).eur.replace(/ /g, ' '), '30,00 €')
+assert.equal(formatDual(bgn(6845)).eur.replace(/ /g, ' '), '35,00 €')
 
 // --- pricing.ts display strings agree with the authoritative cents ----------
 for (const plan of plans) {
